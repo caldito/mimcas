@@ -5,42 +5,32 @@ import (
 	"net/http"
 	"github.com/go-chi/chi/v5"
 	"flag"
-	// 	"fmt"
+	"strconv"
+	// "fmt"
 	// "os"
 	// "time"
 )
+var m = make(map[string]string)
 
-func getArticle(w http.ResponseWriter, r *http.Request) {
+func getValue(w http.ResponseWriter, r *http.Request) {
 	keyParam := chi.URLParam(r, "key")
-	//slugParam := chi.URL(r, "slug")
-	//article, err := database.GetArticle(date, slug)
-  
-	//if err != nil {
-	//  w.WriteHeader(422)
-	//  w.Write([]byte(fmt.Sprintf("error fetching article %s-%s: %v", dateParam, slugParam, err)))
-	//  return
-	//}
-	//
-	//if article == nil {
-	//  w.WriteHeader(404)
-	//  w.Write([]byte("article not found"))
-	//  return
-	//}
-	w.Write([]byte("The key is: " + keyParam))
+	w.Write([]byte(m[keyParam]))
+}
+
+func setValue(w http.ResponseWriter, r *http.Request) {
+	keyParam := chi.URLParam(r, "key")
+	valueParam := chi.URLParam(r, "val")
+	m[keyParam] = valueParam
 }
 
 func main() {
 	//var repo string
-	var port string
-	//flag.StringVar(&repo, "repo", "", "url of the repository")
-	flag.StringVar(&port, "port", "8080", "port to listen to")
+	var port int
+	flag.IntVar(&port, "port", 8080, "port to listen to")
 	flag.Parse()
 	r := chi.NewRouter()
-	r.Get("/value/{key}", getArticle)
+	r.Get("/value/{key}", getValue)
+	r.Put("/value/{key}/{val}", setValue)
 	
-	http.ListenAndServe(":" + port, r)
-	// if repo == "" {
-	// 	fmt.Println("Exiting, repo flag is not provided")
-	// 	os.Exit(2)
-	// }
+	http.ListenAndServe(":" + strconv.Itoa(port), r)
 }

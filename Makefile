@@ -13,6 +13,9 @@ all: build
 build: 
 	CGO_ENABLED=0 $(GOBUILD) -o $(BINARY_NAME) -v $(SOURCE_NAME)
 
+run: build
+	./bin/kv-store
+
 clean: 
 	$(GOCLEAN)
 	rm -f $(BINARY_NAME)
