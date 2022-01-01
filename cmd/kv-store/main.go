@@ -1,20 +1,22 @@
 package main
 
 import (
-	// from other places
 	"net/http"
 	"github.com/go-chi/chi/v5"
 	"flag"
 	"strconv"
-	// "fmt"
-	// "os"
-	// "time"
 )
+
 var m = make(map[string]string)
 
 func getValue(w http.ResponseWriter, r *http.Request) {
 	keyParam := chi.URLParam(r, "key")
-	w.Write([]byte(m[keyParam]))
+	value := m[keyParam]
+	if value == "" {
+		w.WriteHeader(404)
+	} else {
+		w.Write([]byte(value))
+	}
 }
 
 func setValue(w http.ResponseWriter, r *http.Request) {
@@ -24,7 +26,6 @@ func setValue(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	//var repo string
 	var port int
 	flag.IntVar(&port, "port", 8080, "port to listen to")
 	flag.Parse()
