@@ -5,7 +5,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"flag"
 	"strconv"
-	// "time"
 	"net"
 	"fmt"
 	"os"
@@ -45,31 +44,46 @@ func handleConnection(c net.Conn) {
 		}
 		data := strings.TrimSpace(string(netData))
 		params := strings.Split(data," ")
+		response := ""
 		if params[0] == "SET" {
 			if len(params) == 3 {
 				m[params[1]] = params[2]
-				c.Write([]byte("OK\n"))
+				response = "OK\n"
 			} else {
-				c.Write([]byte("ERR syntax error\n"))
+				response = "ERR syntax error\n"
 			}
 		} else if params[0] == "GET" {
-			if 1 < len(params) {
+			if 2 == len(params) {
 				value := m[params[1]]
 				if value == "" {
-					c.Write([]byte("(nil)\n"))
+					response = "(nil)\n"
 				} else {
-					c.Write([]byte(value + "\n"))
+					response = value + "\n"
 				}
 			} else {
-				c.Write([]byte("ERR syntax error\n"))
+				response = "ERR syntax error\n"
+			}
+		} else if params[0] == "MGET" {
+			if 2 <= len(params) {
+				for _, key := range params[1:] {
+					value := m[key]
+					if value == "" {
+						response = response + "(nil)\n"
+					} else {
+						response = response + value + "\n"
+					}
+				}
+			} else {
+				response = "ERR syntax error\n"
 			}
 		} else if params[0] == "QUIT" {
 			break
 		} else if params[0] == "PING" {
-			c.Write([]byte("PONG\n"))
+			response = "PONG\n"
 		} else {
-			c.Write([]byte("ERR unknown command\n"))
+			response = "ERR unknown command\n"
 		}
+		c.Write([]byte(response))
 	}
 	c.Close()
 	fmt.Printf("Closed conn to %s\n", c.RemoteAddr().String())

@@ -1,4 +1,3 @@
-multi get
 ttl
 udp
 case insensitive commands
