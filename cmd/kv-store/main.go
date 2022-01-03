@@ -1,38 +1,17 @@
 package main
 
 import (
-	"net/http"
-	"github.com/go-chi/chi/v5"
-	"flag"
-	"strconv"
-	"net"
-	"fmt"
-	"os"
 	"bufio"
+	"flag"
+	"fmt"
+	"net"
+	"net/http"
+	"os"
+	"strconv"
 	"strings"
 )
 
 var m = make(map[string]string)
-
-func getKey(w http.ResponseWriter, r *http.Request) {
-	keyParam := chi.URLParam(r, "key")
-	value := m[keyParam]
-	if value == "" {
-		w.WriteHeader(404)
-	} else {
-		w.Write([]byte(value))
-	}
-}
-
-func setKey(w http.ResponseWriter, r *http.Request) {
-	keyParam := chi.URLParam(r, "key")
-	valueParam := chi.URLParam(r, "val")
-	m[keyParam] = valueParam
-}
-
-func getHealth(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("OK"))
-}
 
 func handleConnection(c net.Conn) {
 	fmt.Printf("Serving %s\n", c.RemoteAddr().String())
@@ -43,7 +22,7 @@ func handleConnection(c net.Conn) {
 			break
 		}
 		data := strings.TrimSpace(string(netData))
-		params := strings.Split(data," ")
+		params := strings.Split(data, " ")
 		response := ""
 		if params[0] == "SET" {
 			if len(params) == 3 {
@@ -96,13 +75,12 @@ func main() {
 	flag.IntVar(&apiport, "apiport", 8080, "port to listen to")
 	flag.Parse()
 
-	r := chi.NewRouter()
-	r.Get("/keys/{key}", getKey)
-	r.Put("/keys/{key}/{val}", setKey)
-	r.Get("/health", getHealth)
-	go http.ListenAndServe(":" + strconv.Itoa(apiport), r)
+	http.HandleFunc("/ping", func(w http.ResponseWriter, req *http.Request) {
+		fmt.Fprintf(w, "pong")
+	})
+	go http.ListenAndServe(":"+strconv.Itoa(apiport), nil)
 
-	ln, err := net.Listen("tcp", ":" + strconv.Itoa(port))
+	ln, err := net.Listen("tcp", ":"+strconv.Itoa(port))
 	if err != nil {
 		fmt.Println("Error listening")
 		os.Exit(2)
