@@ -46,19 +46,29 @@ func handleConnection(c net.Conn) {
 		data := strings.TrimSpace(string(netData))
 		params := strings.Split(data," ")
 		if params[0] == "SET" {
-			m[params[1]] = params[2]
-			c.Write([]byte("OK\n"))
-		} else if params[0] == "GET" {
-			value := m[params[1]]
-			if value == "" {
-				c.Write([]byte("(nil)\n"))
+			if len(params) == 3 {
+				m[params[1]] = params[2]
+				c.Write([]byte("OK\n"))
 			} else {
-				c.Write([]byte(value + "\n"))
+				c.Write([]byte("ERR syntax error\n"))
 			}
-		} else if params[0] == "CLOSE" {
+		} else if params[0] == "GET" {
+			if 1 < len(params) {
+				value := m[params[1]]
+				if value == "" {
+					c.Write([]byte("(nil)\n"))
+				} else {
+					c.Write([]byte(value + "\n"))
+				}
+			} else {
+				c.Write([]byte("ERR syntax error\n"))
+			}
+		} else if params[0] == "QUIT" {
 			break
 		} else if params[0] == "PING" {
 			c.Write([]byte("PONG\n"))
+		} else {
+			c.Write([]byte("ERR unknown command\n"))
 		}
 	}
 	c.Close()
