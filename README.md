@@ -1,1 +1,1 @@
-# kv-store
+# go-memcached

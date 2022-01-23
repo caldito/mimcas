@@ -1,3 +1,3 @@
-module github.com/caldito/kv-store
+module github.com/caldito/go-memcached
 
 go 1.17
