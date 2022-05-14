@@ -9,14 +9,61 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 )
 
-var m = make(map[string]string)
+type Node struct {
+	Mu   sync.RWMutex
+	Data string
+}
+
+var m = make(map[string]*Node)
+var mapMutex sync.Mutex
+
+//var inserts = make(chan Node)
+//
+//func Insert(a chanInsert) { inserts <- a }
+//
+//type chanInsert struct {
+//	N Node
+//	Key string
+//}
+//
+//func inserter() {
+//	for {
+//		select {
+//		case a := <-inserts:
+//			if _, ok := m[a.Key]; ok {
+//				m[a.Key].Mu.Lock()
+//				m[a.Key].Data = a.N.Data
+//				m[a.Key].Mu.Unlock()
+//			} else {
+//				n := a.N
+//				m[a.Key] = &n
+//			}
+//
+//		}
+//	}
+//}
+
 
 func set(params []string) string {
 	response := ""
 	if len(params) == 3 {
-		m[params[1]] = params[2]
+		mapMutex.Lock() // TODO too blocking, Use single goroutine for inserting
+		if _, ok := m[params[1]]; ok {
+			m[params[1]].Mu.Lock()
+			m[params[1]].Data = params[2]
+			m[params[1]].Mu.Unlock()
+		} else {
+			//n := Node{Data: params[2]}
+			//a := chanInsert{N: n, Key: params[2]}
+			//Insert(a)
+			 n := Node{Data: params[2]}
+			 n.Data = params[2]
+			 m[params[1]] = &n
+		}
+		mapMutex.Unlock()
 		response = "OK\n"
 	} else {
 		response = "ERR syntax error\n"
@@ -27,11 +74,17 @@ func set(params []string) string {
 func get(params []string) string {
 	response := ""
 	if 2 == len(params) {
-		value := m[params[1]]
-		if value == "" {
-			response = "(nil)\n"
+		if _, ok := m[params[1]]; ok {
+			m[params[1]].Mu.RLock()
+			value := m[params[1]].Data
+			m[params[1]].Mu.RUnlock()
+			if value == "" {
+				response = "(nil)\n"
+			} else {
+				response = value + "\n"
+			}
 		} else {
-			response = value + "\n"
+			response = "(nil)\n"
 		}
 	} else {
 		response = "ERR syntax error\n"
@@ -43,11 +96,17 @@ func mget(params []string) string {
 	response := ""
 	if 2 <= len(params) {
 		for _, key := range params[1:] {
-			value := m[key]
-			if value == "" {
-				response = response + "(nil)\n"
+			if _, ok := m[params[1]]; ok {
+				m[key].Mu.RLock()
+				value := m[key].Data
+				m[key].Mu.RUnlock()
+				if value == "" {
+					response = response + "(nil)\n"
+				} else {
+					response = response + value + "\n"
+				}
 			} else {
-				response = response + value + "\n"
+				response = response + "(nil)\n"
 			}
 		}
 	} else {
@@ -97,6 +156,8 @@ func main() {
 		fmt.Fprintf(w, "pong")
 	})
 	go http.ListenAndServe(":"+strconv.Itoa(apiport), nil)
+
+	// go inserter()
 
 	ln, err := net.Listen("tcp", ":"+strconv.Itoa(port))
 	if err != nil {
