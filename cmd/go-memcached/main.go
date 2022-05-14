@@ -12,58 +12,59 @@ import (
 	"sync"
 )
 
+//// basic cache data structure
+
 type Node struct {
 	Mu   sync.RWMutex
 	Data string
 }
 
 var m = make(map[string]*Node)
-var mapMutex sync.Mutex
 
-//var inserts = make(chan Node)
-//
-//func Insert(a chanInsert) { inserts <- a }
-//
-//type chanInsert struct {
-//	N Node
-//	Key string
-//}
-//
-//func inserter() {
-//	for {
-//		select {
-//		case a := <-inserts:
-//			if _, ok := m[a.Key]; ok {
-//				m[a.Key].Mu.Lock()
-//				m[a.Key].Data = a.N.Data
-//				m[a.Key].Mu.Unlock()
-//			} else {
-//				n := a.N
-//				m[a.Key] = &n
-//			}
-//
-//		}
-//	}
-//}
+//// inserter goroutine and other related stuff
 
+var inserts = make(chan chanInsert)
+
+func Insert(a chanInsert) { inserts <- a }
+
+type chanInsert struct {
+	N Node
+	Key string
+}
+
+func inserter() {
+	for {
+		select {
+		case a := <-inserts:
+			if _, ok := m[a.Key]; ok {
+				m[a.Key].Mu.Lock()
+				m[a.Key].Data = a.N.Data
+				m[a.Key].Mu.Unlock()
+			} else {
+				n := a.N
+				m[a.Key] = &n
+			}
+		}
+	}
+}
+
+//// commands
 
 func set(params []string) string {
 	response := ""
 	if len(params) == 3 {
-		mapMutex.Lock() // TODO too blocking, Use single goroutine for inserting
 		if _, ok := m[params[1]]; ok {
 			m[params[1]].Mu.Lock()
 			m[params[1]].Data = params[2]
 			m[params[1]].Mu.Unlock()
 		} else {
-			//n := Node{Data: params[2]}
-			//a := chanInsert{N: n, Key: params[2]}
-			//Insert(a)
-			 n := Node{Data: params[2]}
-			 n.Data = params[2]
-			 m[params[1]] = &n
+			n := Node{Data: params[2]}
+			a := chanInsert{N: n, Key: params[1]}
+			// insert could be non blocking by using a buffered channel,
+			// but as a downside there is risk to loose inserted data
+			// if the channel fills up too quickly
+			Insert(a)
 		}
-		mapMutex.Unlock()
 		response = "OK\n"
 	} else {
 		response = "ERR syntax error\n"
@@ -115,6 +116,8 @@ func mget(params []string) string {
 	return response
 }
 
+//// connection handling and main
+
 func handleConnection(c net.Conn) {
 	fmt.Printf("Serving %s\n", c.RemoteAddr().String())
 	for {
@@ -157,7 +160,7 @@ func main() {
 	})
 	go http.ListenAndServe(":"+strconv.Itoa(apiport), nil)
 
-	// go inserter()
+	go inserter()
 
 	ln, err := net.Listen("tcp", ":"+strconv.Itoa(port))
 	if err != nil {
