@@ -4,7 +4,7 @@ In memory cache built in Go for learning purposes. WIP
 ## Usage
 
 ### Start the server
-Run the following command to start the server
+Run the following command to start the server. It listens for connections on port `20000`.
 ```
 make run
 ```
@@ -20,7 +20,7 @@ Retrieves the value of a key
 ### mget
 Retrieves the value of one or multiple keys
 
-## Connect with a client and make commands
+## Connect with a client and run commands
 As the client as of now you can use netcat.
 Example
 ```

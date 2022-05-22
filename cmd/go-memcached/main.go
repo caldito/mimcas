@@ -14,35 +14,37 @@ import (
 
 //// basic cache data structure
 
-type Node struct {
-	Mu   sync.RWMutex
-	Data string
+type Cache struct {
+	m map[string]*node
 }
 
-var m = make(map[string]*Node)
+type node struct {
+	mutex   sync.RWMutex
+	value string
+}
 
 //// inserter goroutine and other related stuff
 
-var inserts = make(chan chanInsert)
+var inserts = make(chan insertsChanStruct)
 
-func Insert(a chanInsert) { inserts <- a }
+func insert(a insertsChanStruct) { inserts <- a }
 
-type chanInsert struct {
-	N Node
-	Key string
+type insertsChanStruct struct {
+	n node
+	key string
 }
 
-func inserter() {
+func (c *Cache) inserter() {
 	for {
 		select {
 		case a := <-inserts:
-			if _, ok := m[a.Key]; ok {
-				m[a.Key].Mu.Lock()
-				m[a.Key].Data = a.N.Data
-				m[a.Key].Mu.Unlock()
+			if _, ok := c.m[a.key]; ok {
+				c.m[a.key].mutex.Lock()
+				c.m[a.key].value = a.n.value
+				c.m[a.key].mutex.Unlock()
 			} else {
-				n := a.N
-				m[a.Key] = &n
+				n := a.n
+				c.m[a.key] = &n
 			}
 		}
 	}
@@ -50,20 +52,20 @@ func inserter() {
 
 //// commands
 
-func set(params []string) string {
+func (c *Cache) set(params []string) string {
 	response := ""
 	if len(params) == 3 {
-		if _, ok := m[params[1]]; ok {
-			m[params[1]].Mu.Lock()
-			m[params[1]].Data = params[2]
-			m[params[1]].Mu.Unlock()
+		if _, ok := c.m[params[1]]; ok {
+			c.m[params[1]].mutex.Lock()
+			c.m[params[1]].value = params[2]
+			c.m[params[1]].mutex.Unlock()
 		} else {
-			n := Node{Data: params[2]}
-			a := chanInsert{N: n, Key: params[1]}
+			newNode := node{value: params[2]}
+			a := insertsChanStruct{n: newNode, key: params[1]}
 			// insert could be non blocking by using a buffered channel,
 			// but as a downside there is risk to loose inserted data
 			// if the channel fills up too quickly
-			Insert(a)
+			insert(a)
 		}
 		response = "OK\n"
 	} else {
@@ -72,13 +74,13 @@ func set(params []string) string {
 	return response
 }
 
-func get(params []string) string {
+func (c *Cache) get(params []string) string {
 	response := ""
 	if 2 == len(params) {
-		if _, ok := m[params[1]]; ok {
-			m[params[1]].Mu.RLock()
-			value := m[params[1]].Data
-			m[params[1]].Mu.RUnlock()
+		if _, ok := c.m[params[1]]; ok {
+			c.m[params[1]].mutex.RLock()
+			value := c.m[params[1]].value
+			c.m[params[1]].mutex.RUnlock()
 			if value == "" {
 				response = "(nil)\n"
 			} else {
@@ -93,20 +95,20 @@ func get(params []string) string {
 	return response
 }
 
-func mget(params []string) string {
+func (c *Cache) mget(params []string) string {
 	response := ""
 	if 2 <= len(params) {
 		for _, key := range params[1:] {
-			if _, ok := m[params[1]]; ok {
-				m[key].Mu.RLock()
-				value := m[key].Data
-				m[key].Mu.RUnlock()
+			if _, ok := c.m[key]; ok {
+				c.m[key].mutex.RLock()
+				value := c.m[key].value
+				c.m[key].mutex.RUnlock()
 				if value == "" {
 					response = response + "(nil)\n"
 				} else {
 					response = response + value + "\n"
 				}
-			} else {
+			} else { // TODO something wrong here
 				response = response + "(nil)\n"
 			}
 		}
@@ -118,10 +120,10 @@ func mget(params []string) string {
 
 //// connection handling and main
 
-func handleConnection(c net.Conn) {
-	fmt.Printf("Serving %s\n", c.RemoteAddr().String())
+func handleConnection(cache *Cache, conn net.Conn) {
+	fmt.Printf("Serving %s\n", conn.RemoteAddr().String())
 	for {
-		netData, err := bufio.NewReader(c).ReadString('\n')
+		netData, err := bufio.NewReader(conn).ReadString('\n')
 		if err != nil {
 			fmt.Println(err)
 			break
@@ -130,11 +132,11 @@ func handleConnection(c net.Conn) {
 		params := strings.Split(data, " ")
 		response := ""
 		if params[0] == "SET" || params[0] == "set" {
-			response = set(params)
+			response = cache.set(params)
 		} else if params[0] == "GET" || params[0] == "get" {
-			response = get(params)
+			response = cache.get(params)
 		} else if params[0] == "MGET" || params[0] == "mget" {
-			response = mget(params)
+			response = cache.mget(params)
 		} else if params[0] == "QUIT" || params[0] == "quit" {
 			break
 		} else if params[0] == "PING" || params[0] == "ping" {
@@ -142,10 +144,10 @@ func handleConnection(c net.Conn) {
 		} else {
 			response = "ERR unknown command\n"
 		}
-		c.Write([]byte(response))
+		conn.Write([]byte(response))
 	}
-	c.Close()
-	fmt.Printf("Closed conn to %s\n", c.RemoteAddr().String())
+	conn.Close()
+	fmt.Printf("Closed conn to %s\n", conn.RemoteAddr().String())
 }
 
 func main() {
@@ -155,12 +157,17 @@ func main() {
 	flag.IntVar(&apiport, "apiport", 8080, "port to listen to")
 	flag.Parse()
 
+	var cache = Cache{m: make(map[string]*node)}
+
 	http.HandleFunc("/ping", func(w http.ResponseWriter, req *http.Request) {
-		fmt.Fprintf(w, "pong")
+		fmt.Fprintf(w, "pong\n")
+	})
+	http.HandleFunc("/health", func(w http.ResponseWriter, req *http.Request) {
+		fmt.Fprintf(w, "ok\n")
 	})
 	go http.ListenAndServe(":"+strconv.Itoa(apiport), nil)
 
-	go inserter()
+	go cache.inserter()
 
 	ln, err := net.Listen("tcp", ":"+strconv.Itoa(port))
 	if err != nil {
@@ -173,6 +180,6 @@ func main() {
 			fmt.Println("Error accepting connection")
 			os.Exit(2)
 		}
-		go handleConnection(conn)
+		go handleConnection(&cache, conn)
 	}
 }
