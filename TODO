@@ -1,2 +1,3 @@
-ttl
-lru
+ttl eviction
+lru eviction
+follow memcached protocol

@@ -13,12 +13,12 @@ import (
 	"sync"
 )
 
-//// basic cache data structure
+//// lru cache data structure
 
 type Cache struct {
 	items map[string]*list.Element
 	lruList *list.List
-	// should channels be inside de cache struct or be global?
+	// should channels be inside the cache struct or be global?
 }
 
 type node struct {
@@ -26,30 +26,33 @@ type node struct {
 	value string
 }
 
-//// inserter goroutine and other related stuff
-
-var inserts = make(chan insertsChanStruct)
-
-func insert(a insertsChanStruct) { inserts <- a }
-
+//// cacheHandler goroutine and stuff related to it
 type insertsChanStruct struct {
 	n node
 	key string
 }
 
-func (c *Cache) inserter() {
+var inserts = make(chan insertsChanStruct)
+func insert(toInsert insertsChanStruct) { inserts <- toInsert }
+
+var useds = make(chan *list.Element)
+func markAsUsed(elem *list.Element) { useds <- elem }
+
+func (c *Cache) cacheHandler() {
 	for {
 		select {
-		case a := <-inserts:
-			if elem, ok := c.items[a.key]; ok {
-				elem.Value.(*node).mutex.Lock()
-				elem.Value.(*node).value = a.n.value
-				elem.Value.(*node).mutex.Unlock()
-			} else {
-				n := a.n
-				elem := c.lruList.PushFront(&n)
-				c.items[a.key] = elem
-			}
+			case toInsert := <-inserts:
+				if elem, ok := c.items[toInsert.key]; ok {
+					elem.Value.(*node).mutex.Lock()
+					elem.Value.(*node).value = toInsert.n.value
+					elem.Value.(*node).mutex.Unlock()
+				} else {
+					n := toInsert.n
+					elem := c.lruList.PushFront(&n)
+					c.items[toInsert.key] = elem
+				}
+			case elem := <-useds:
+				c.lruList.MoveToFront(elem)
 		}
 	}
 }
@@ -63,13 +66,14 @@ func (c *Cache) set(params []string) string {
 			elem.Value.(*node).mutex.Lock()
 			elem.Value.(*node).value = params[2]
 			elem.Value.(*node).mutex.Unlock()
+			markAsUsed(elem)
 		} else {
 			newNode := node{value: params[2]}
-			a := insertsChanStruct{n: newNode, key: params[1]}
+			toInsert := insertsChanStruct{n: newNode, key: params[1]}
 			// insert could be non blocking by using a buffered channel,
 			// but as a downside there is risk to loose inserted data
 			// if the channel fills up too quickly
-			insert(a)
+			insert(toInsert)
 		}
 		response = "OK\n"
 	} else {
@@ -85,6 +89,10 @@ func (c *Cache) get(params []string) string {
 			elem.Value.(*node).mutex.RLock()
 			value := elem.Value.(*node).value
 			elem.Value.(*node).mutex.RUnlock()
+			// mark as read could be non blocking by using a buffered channel,
+			// but as a downside there is risk to not mark as used some used data
+			// if the channel fills up too quickly
+			markAsUsed(elem)
 			if value == "" {
 				response = "(nil)\n"
 			} else {
@@ -107,6 +115,7 @@ func (c *Cache) mget(params []string) string {
 				elem.Value.(*node).mutex.RLock()
 				value := elem.Value.(*node).value
 				elem.Value.(*node).mutex.RUnlock()
+				markAsUsed(elem)
 				if value == "" {
 					response = response + "(nil)\n"
 				} else {
@@ -171,7 +180,7 @@ func main() {
 	})
 	go http.ListenAndServe(":"+strconv.Itoa(apiport), nil)
 
-	go cache.inserter()
+	go cache.cacheHandler()
 
 	ln, err := net.Listen("tcp", ":"+strconv.Itoa(port))
 	if err != nil {
