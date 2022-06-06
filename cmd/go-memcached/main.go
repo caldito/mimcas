@@ -1,6 +1,7 @@
 package main
 
 import (
+	"container/list"
 	"bufio"
 	"flag"
 	"fmt"
@@ -15,7 +16,9 @@ import (
 //// basic cache data structure
 
 type Cache struct {
-	m map[string]*node
+	items map[string]*list.Element
+	lruList *list.List
+	// should channels be inside de cache struct or be global?
 }
 
 type node struct {
@@ -38,13 +41,14 @@ func (c *Cache) inserter() {
 	for {
 		select {
 		case a := <-inserts:
-			if _, ok := c.m[a.key]; ok {
-				c.m[a.key].mutex.Lock()
-				c.m[a.key].value = a.n.value
-				c.m[a.key].mutex.Unlock()
+			if elem, ok := c.items[a.key]; ok {
+				elem.Value.(*node).mutex.Lock()
+				elem.Value.(*node).value = a.n.value
+				elem.Value.(*node).mutex.Unlock()
 			} else {
 				n := a.n
-				c.m[a.key] = &n
+				elem := c.lruList.PushFront(&n)
+				c.items[a.key] = elem
 			}
 		}
 	}
@@ -55,10 +59,10 @@ func (c *Cache) inserter() {
 func (c *Cache) set(params []string) string {
 	response := ""
 	if len(params) == 3 {
-		if _, ok := c.m[params[1]]; ok {
-			c.m[params[1]].mutex.Lock()
-			c.m[params[1]].value = params[2]
-			c.m[params[1]].mutex.Unlock()
+		if elem, ok := c.items[params[1]]; ok {
+			elem.Value.(*node).mutex.Lock()
+			elem.Value.(*node).value = params[2]
+			elem.Value.(*node).mutex.Unlock()
 		} else {
 			newNode := node{value: params[2]}
 			a := insertsChanStruct{n: newNode, key: params[1]}
@@ -77,10 +81,10 @@ func (c *Cache) set(params []string) string {
 func (c *Cache) get(params []string) string {
 	response := ""
 	if 2 == len(params) {
-		if _, ok := c.m[params[1]]; ok {
-			c.m[params[1]].mutex.RLock()
-			value := c.m[params[1]].value
-			c.m[params[1]].mutex.RUnlock()
+		if elem, ok := c.items[params[1]]; ok {
+			elem.Value.(*node).mutex.RLock()
+			value := elem.Value.(*node).value
+			elem.Value.(*node).mutex.RUnlock()
 			if value == "" {
 				response = "(nil)\n"
 			} else {
@@ -99,10 +103,10 @@ func (c *Cache) mget(params []string) string {
 	response := ""
 	if 2 <= len(params) {
 		for _, key := range params[1:] {
-			if _, ok := c.m[key]; ok {
-				c.m[key].mutex.RLock()
-				value := c.m[key].value
-				c.m[key].mutex.RUnlock()
+			if elem, ok := c.items[key]; ok {
+				elem.Value.(*node).mutex.RLock()
+				value := elem.Value.(*node).value
+				elem.Value.(*node).mutex.RUnlock()
 				if value == "" {
 					response = response + "(nil)\n"
 				} else {
@@ -157,7 +161,7 @@ func main() {
 	flag.IntVar(&apiport, "apiport", 8080, "port to listen to")
 	flag.Parse()
 
-	var cache = Cache{m: make(map[string]*node)}
+	var cache = Cache{items: make(map[string]*list.Element), lruList: list.New()}
 
 	http.HandleFunc("/ping", func(w http.ResponseWriter, req *http.Request) {
 		fmt.Fprintf(w, "pong\n")
