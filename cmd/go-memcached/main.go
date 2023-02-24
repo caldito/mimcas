@@ -22,13 +22,13 @@ type Cache struct {
 }
 
 type node struct {
-	mutex   sync.RWMutex
+	mutex sync.RWMutex
 	value string
 }
 
 //// cacheHandler goroutine and stuff related to it
 type insertsChanStruct struct {
-	n node
+	n *node
 	key string
 }
 
@@ -48,7 +48,7 @@ func (c *Cache) cacheHandler() {
 					elem.Value.(*node).mutex.Unlock()
 				} else {
 					n := toInsert.n
-					elem := c.lruList.PushFront(&n)
+					elem := c.lruList.PushFront(n)
 					c.items[toInsert.key] = elem
 				}
 			case elem := <-useds:
@@ -69,7 +69,7 @@ func (c *Cache) set(params []string) string {
 			markAsUsed(elem)
 		} else {
 			newNode := node{value: params[2]}
-			toInsert := insertsChanStruct{n: newNode, key: params[1]}
+			toInsert := insertsChanStruct{n: &newNode, key: params[1]}
 			// insert could be non blocking by using a buffered channel,
 			// but as a downside there is risk to loose inserted data
 			// if the channel fills up too quickly
