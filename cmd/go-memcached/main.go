@@ -38,22 +38,26 @@ func insert(toInsert insertsChanStruct) { inserts <- toInsert }
 var useds = make(chan *list.Element)
 func markAsUsed(elem *list.Element) { useds <- elem }
 
-func (c *Cache) cacheHandler() {
+func (c *Cache) insertsHandler() {
 	for {
-		select {
-			case toInsert := <-inserts:
-				if elem, ok := c.items[toInsert.key]; ok {
-					elem.Value.(*node).mutex.Lock()
-					elem.Value.(*node).value = toInsert.n.value
-					elem.Value.(*node).mutex.Unlock()
-				} else {
-					n := toInsert.n
-					elem := c.lruList.PushFront(n)
-					c.items[toInsert.key] = elem
-				}
-			case elem := <-useds:
-				c.lruList.MoveToFront(elem)
+		toInsert := <-inserts
+		if elem, ok := c.items[toInsert.key]; ok { // to prevent inserting twice for a key
+			elem.Value.(*node).mutex.Lock()
+			elem.Value.(*node).value = toInsert.n.value
+			elem.Value.(*node).mutex.Unlock()
+			markAsUsed(elem)
+		} else {
+			n := toInsert.n
+			elem := c.lruList.PushFront(n)
+			c.items[toInsert.key] = elem
 		}
+	}
+}
+
+func (c *Cache) usedsHandler() {
+	for {
+		elem := <-useds
+		c.lruList.MoveToFront(elem)
 	}
 }
 
@@ -180,7 +184,8 @@ func main() {
 	})
 	go http.ListenAndServe(":"+strconv.Itoa(apiport), nil)
 
-	go cache.cacheHandler()
+	go cache.insertsHandler()
+	go cache.usedsHandler()
 
 	ln, err := net.Listen("tcp", ":"+strconv.Itoa(port))
 	if err != nil {
