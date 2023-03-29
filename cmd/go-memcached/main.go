@@ -23,6 +23,7 @@ type Cache struct {
 
 type node struct {
 	mutex sync.RWMutex
+	key   string
 	value string
 }
 
@@ -72,7 +73,7 @@ func (c *Cache) set(params []string) string {
 			elem.Value.(*node).mutex.Unlock()
 			markAsUsed(elem)
 		} else {
-			newNode := node{value: params[2]}
+			newNode := node{key: params[1], value: params[2]}
 			toInsert := insertsChanStruct{n: &newNode, key: params[1]}
 			// insert could be non blocking by using a buffered channel,
 			// but as a downside there is risk to loose inserted data
@@ -88,7 +89,7 @@ func (c *Cache) set(params []string) string {
 
 func (c *Cache) get(params []string) string {
 	response := ""
-	if 2 == len(params) {
+	if len(params) == 2 {
 		if elem, ok := c.items[params[1]]; ok {
 			elem.Value.(*node).mutex.RLock()
 			value := elem.Value.(*node).value
