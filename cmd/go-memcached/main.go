@@ -1,8 +1,8 @@
 package main
 
 import (
-	"container/list"
 	"bufio"
+	"container/list"
 	"flag"
 	"fmt"
 	"net"
@@ -11,12 +11,14 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"unsafe"
+	"time"
 )
 
 //// lru cache data structure
 
 type Cache struct {
-	items map[string]*list.Element
+	items   map[string]*list.Element
 	lruList *list.List
 	// should channels be inside the cache struct or be global?
 }
@@ -29,7 +31,7 @@ type node struct {
 
 //// cacheHandler goroutine and stuff related to it
 type insertsChanStruct struct {
-	n *node
+	n   *node
 	key string
 }
 
@@ -59,6 +61,29 @@ func (c *Cache) usedsHandler() {
 	for {
 		elem := <-useds
 		c.lruList.MoveToFront(elem)
+	}
+}
+
+// function for measuring memory usage by the LRU list
+func (c *Cache) evictionHandler() {
+	// TODO
+	// * WARNING The list node order can change while this is happening. This is an provisional solution.
+	//		- either lock the list while iterating or keep track when adding, editing or removing nodes
+	// * WARNING not checking for overflows. Unsafe package is called that way for a reason
+	// * WARNING probably I'm missing something, need to check the total memory footprint of the program
+	for {
+	    time.Sleep(30 * time.Second) // TODO make this a config value
+	    lruElementsSizeBytes := unsafe.Sizeof(c.lruList.Front()) + unsafe.Sizeof(c.lruList.Front().Value.(*node))
+	    cacheSizeBytes := int(unsafe.Sizeof(c)) + int(unsafe.Sizeof(c.lruList)) + c.lruList.Len() * int(lruElementsSizeBytes)
+	    nodesSizeBytes := 0
+	    for e := c.lruList.Front(); e != nil; e = e.Next() {
+	    	nodesSizeBytes += int(unsafe.Sizeof(e.Value.(*node)))
+	    	nodesSizeBytes += int(unsafe.Sizeof(e.Value.(*node).mutex))
+	    	nodesSizeBytes += len(e.Value.(*node).key)
+	    	nodesSizeBytes += len(e.Value.(*node).value)
+	    }
+	    totalCacheSizeBytes := cacheSizeBytes + nodesSizeBytes
+	    fmt.Printf("totalCacheSizeBytes: %d\n", totalCacheSizeBytes)
 	}
 }
 
@@ -171,8 +196,10 @@ func handleConnection(cache *Cache, conn net.Conn) {
 func main() {
 	var port int
 	var apiport int
+	var maxmemory int
 	flag.IntVar(&port, "port", 20000, "port to listen to")
 	flag.IntVar(&apiport, "apiport", 8080, "port to listen to")
+	flag.IntVar(&maxmemory, "maxmemory", 0, "Maximum number of bytes available to use")
 	flag.Parse()
 
 	var cache = Cache{items: make(map[string]*list.Element), lruList: list.New()}
@@ -187,6 +214,9 @@ func main() {
 
 	go cache.insertsHandler()
 	go cache.usedsHandler()
+	if (maxmemory > 0) {
+		go cache.evictionHandler()
+	}
 
 	ln, err := net.Listen("tcp", ":"+strconv.Itoa(port))
 	if err != nil {
