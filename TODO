@@ -1,3 +1,5 @@
 ttl eviction
 lru eviction
-follow memcached protocol
+follow memcached and/or redis protocol
+client for go and java
+clustering or some sort of distributed caching

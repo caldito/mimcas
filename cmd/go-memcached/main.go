@@ -18,9 +18,11 @@ import (
 //// lru cache data structure
 
 type Cache struct {
-	items   map[string]*list.Element
-	lruList *list.List
-	// should channels be inside the cache struct or be global?
+	items       map[string]*list.Element
+	lruList     *list.List
+	memory 	    int
+	memoryMutex sync.RWMutex
+	maxmemory   int
 }
 
 type node struct {
