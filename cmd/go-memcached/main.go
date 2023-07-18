@@ -21,8 +21,8 @@ type Cache struct {
 	items       map[string]*list.Element
 	lruList     *list.List
 	memory 	    int
-	memoryMutex sync.RWMutex
 	maxmemory   int
+	memoryMutex sync.RWMutex
 }
 
 type node struct {
@@ -73,19 +73,21 @@ func (c *Cache) evictionHandler() {
 	//		- either lock the list while iterating or keep track when adding, editing or removing nodes
 	// * WARNING not checking for overflows. Unsafe package is called that way for a reason
 	// * WARNING probably I'm missing something, need to check the total memory footprint of the program
+	lruElementsSizeBytes := unsafe.Sizeof(c.lruList.Front()) + unsafe.Sizeof(c.lruList.Front().Value.(*node))
+	emptyCacheSizeBytes := int(unsafe.Sizeof(*c)) + int(unsafe.Sizeof(c.lruList))
 	for {
-	    time.Sleep(30 * time.Second) // TODO make this a config value
-	    lruElementsSizeBytes := unsafe.Sizeof(c.lruList.Front()) + unsafe.Sizeof(c.lruList.Front().Value.(*node))
-	    cacheSizeBytes := int(unsafe.Sizeof(c)) + int(unsafe.Sizeof(c.lruList)) + c.lruList.Len() * int(lruElementsSizeBytes)
-	    nodesSizeBytes := 0
+	    nodesSizeBytes := c.lruList.Len() * int(lruElementsSizeBytes)
 	    for e := c.lruList.Front(); e != nil; e = e.Next() {
 	    	nodesSizeBytes += int(unsafe.Sizeof(e.Value.(*node)))
 	    	nodesSizeBytes += int(unsafe.Sizeof(e.Value.(*node).mutex))
 	    	nodesSizeBytes += len(e.Value.(*node).key)
 	    	nodesSizeBytes += len(e.Value.(*node).value)
 	    }
-	    totalCacheSizeBytes := cacheSizeBytes + nodesSizeBytes
+	    totalCacheSizeBytes := emptyCacheSizeBytes + nodesSizeBytes
 	    fmt.Printf("totalCacheSizeBytes: %d\n", totalCacheSizeBytes)
+
+		fmt.Printf("Size of cache: %d bytes\n", unsafe.Sizeof(*c))
+		time.Sleep(30 * time.Second) // TODO make this a config value
 	}
 }
 
@@ -153,7 +155,7 @@ func (c *Cache) mget(params []string) string {
 				} else {
 					response = response + value + "\n"
 				}
-			} else { // TODO something wrong here
+			} else { // TODO something wrong here (?)
 				response = response + "(nil)\n"
 			}
 		}
