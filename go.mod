@@ -1,3 +1,3 @@
-module github.com/caldito/go-memcached
+module github.com/caldito/mimcas
 
 go 1.17
