@@ -31,7 +31,7 @@ type node struct {
 	value string
 }
 
-//// cacheHandler goroutine and stuff related to it
+//// insertsHandler goroutine and stuff related to it
 type insertsChanStruct struct {
 	n   *node
 	key string
@@ -39,9 +39,6 @@ type insertsChanStruct struct {
 
 var inserts = make(chan insertsChanStruct)
 func insert(toInsert insertsChanStruct) { inserts <- toInsert }
-
-var useds = make(chan *list.Element)
-func markAsUsed(elem *list.Element) { useds <- elem }
 
 func (c *Cache) insertsHandler() {
 	for {
@@ -53,16 +50,38 @@ func (c *Cache) insertsHandler() {
 			markAsUsed(elem)
 		} else {
 			n := toInsert.n
-			elem := c.lruList.PushFront(n)
+			insertLru(n)
 			c.items[toInsert.key] = elem
 		}
 	}
 }
 
-func (c *Cache) usedsHandler() {
+//// lruOperationsHandler goroutine and stuff related to it
+type lruOperationsChanStruct struct {
+	op int	// 0 mark as used
+			// 1 insert
+			// 2 remove
+	el *list.Element 	// for op 0 and 2
+	n *node				// for op 1
+}
+var lruOperations = make(chan lruOperationsChanStruct)
+func markAsUsed(elem *list.Element) { lruOperations <-lruOperationsChanStruct{el: elem, op: 0} }
+func insertLru(node *node) { lruOperations <- lruOperationsChanStruct{n: node, op: 1} }
+func removeLru(elem *list.Element) { lruOperations <- lruOperationsChanStruct{el: elem, op: 2} }
+
+func (c *Cache) lruOperationsHandler() {
 	for {
-		elem := <-useds
-		c.lruList.MoveToFront(elem)
+		lruOperation := <-lruOperations
+		if (lruOperation.op == 0) { // mark as used
+			c.lruList.MoveToFront(lruOperation.el)
+		} else if (lruOperation.op == 1) { // insert
+			c.lruList.PushFront(lruOperation.n)
+		} else if (lruOperation.op == 2) { // delete
+
+		} else {
+			fmt.Printf("Error: invalid lru operation code")
+		}
+
 	}
 }
 
@@ -75,6 +94,9 @@ func (c *Cache) evictionHandler() {
 	// * WARNING probably I'm missing something, need to check the total memory footprint of the program
 	lruElementsSizeBytes := unsafe.Sizeof(c.lruList.Front()) + unsafe.Sizeof(c.lruList.Front().Value.(*node))
 	emptyCacheSizeBytes := int(unsafe.Sizeof(*c)) + int(unsafe.Sizeof(c.lruList))
+	c.memoryMutex.Lock()
+	c.memory = emptyCacheSizeBytes
+	c.memoryMutex.Unlock()
 	for {
 	    nodesSizeBytes := c.lruList.Len() * int(lruElementsSizeBytes)
 	    for e := c.lruList.Front(); e != nil; e = e.Next() {
@@ -217,7 +239,7 @@ func main() {
 	go http.ListenAndServe(":"+strconv.Itoa(apiport), nil)
 
 	go cache.insertsHandler()
-	go cache.usedsHandler()
+	go cache.lruOperationsHandler()
 	if (maxmemory > 0) {
 		go cache.evictionHandler()
 	}
