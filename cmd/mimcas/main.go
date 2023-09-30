@@ -12,46 +12,41 @@ import (
 	"strings"
 	"sync"
 	"unsafe"
-	"time"
+    "time"
 )
 
 //// lru cache data structure
 
 type Cache struct {
-	items       map[string]*list.Element
+	items       map[string]*Node // TODO: change to node
 	lruList     *list.List
 	memory 	    int
 	maxmemory   int
 	memoryMutex sync.RWMutex
 }
 
-type node struct {
+type Node struct {
 	mutex sync.RWMutex
 	key   string
 	value string
+	lruElem *list.Element
 }
 
-//// insertsHandler goroutine and stuff related to it
-type insertsChanStruct struct {
-	n   *node
-	key string
-}
-
-var inserts = make(chan insertsChanStruct)
-func insert(toInsert insertsChanStruct) { inserts <- toInsert }
+//// inserts channel and handler function
+var inserts = make(chan *Node)
+func insert(toInsert *Node) { inserts <- toInsert }
 
 func (c *Cache) insertsHandler() {
 	for {
 		toInsert := <-inserts
-		if elem, ok := c.items[toInsert.key]; ok { // to prevent inserting twice for a key
-			elem.Value.(*node).mutex.Lock()
-			elem.Value.(*node).value = toInsert.n.value
-			elem.Value.(*node).mutex.Unlock()
-			markAsUsed(elem)
+		if node, ok := c.items[toInsert.key]; ok { // to prevent inserting twice for a key
+			node.mutex.Lock()
+			node.value = toInsert.value
+			node.mutex.Unlock()
+			markAsUsed(node)
 		} else {
-			n := toInsert.n
-			insertLru(n)
-			c.items[toInsert.key] = elem
+			insertLru(toInsert)
+			c.items[toInsert.key] = toInsert // TODO: BUGGGGGG
 		}
 	}
 }
@@ -61,21 +56,22 @@ type lruOperationsChanStruct struct {
 	op int	// 0 mark as used
 			// 1 insert
 			// 2 remove
-	el *list.Element 	// for op 0 and 2
-	n *node				// for op 1
+	el *list.Element 	// for op 2
+	n *Node				// for op 0 and 1
 }
 var lruOperations = make(chan lruOperationsChanStruct)
-func markAsUsed(elem *list.Element) { lruOperations <-lruOperationsChanStruct{el: elem, op: 0} }
-func insertLru(node *node) { lruOperations <- lruOperationsChanStruct{n: node, op: 1} }
+func markAsUsed(node *Node) { lruOperations <-lruOperationsChanStruct{n: node, op: 0} }
+func insertLru(node *Node) { lruOperations <- lruOperationsChanStruct{n: node, op: 1} }
 func removeLru(elem *list.Element) { lruOperations <- lruOperationsChanStruct{el: elem, op: 2} }
 
 func (c *Cache) lruOperationsHandler() {
 	for {
 		lruOperation := <-lruOperations
 		if (lruOperation.op == 0) { // mark as used
-			c.lruList.MoveToFront(lruOperation.el)
+			c.lruList.MoveToFront(lruOperation.n.lruElem)
 		} else if (lruOperation.op == 1) { // insert
-			c.lruList.PushFront(lruOperation.n)
+			elem := c.lruList.PushFront(lruOperation.n)
+			elem.Value.(*Node).lruElem = elem
 		} else if (lruOperation.op == 2) { // delete
 
 		} else {
@@ -92,7 +88,10 @@ func (c *Cache) evictionHandler() {
 	//		- either lock the list while iterating or keep track when adding, editing or removing nodes
 	// * WARNING not checking for overflows. Unsafe package is called that way for a reason
 	// * WARNING probably I'm missing something, need to check the total memory footprint of the program
-	lruElementsSizeBytes := unsafe.Sizeof(c.lruList.Front()) + unsafe.Sizeof(c.lruList.Front().Value.(*node))
+
+
+
+	lruElementsSizeBytes := unsafe.Sizeof(c.lruList.Front()) + unsafe.Sizeof(c.lruList.Front().Value.(*Node))
 	emptyCacheSizeBytes := int(unsafe.Sizeof(*c)) + int(unsafe.Sizeof(c.lruList))
 	c.memoryMutex.Lock()
 	c.memory = emptyCacheSizeBytes
@@ -100,15 +99,13 @@ func (c *Cache) evictionHandler() {
 	for {
 	    nodesSizeBytes := c.lruList.Len() * int(lruElementsSizeBytes)
 	    for e := c.lruList.Front(); e != nil; e = e.Next() {
-	    	nodesSizeBytes += int(unsafe.Sizeof(e.Value.(*node)))
-	    	nodesSizeBytes += int(unsafe.Sizeof(e.Value.(*node).mutex))
-	    	nodesSizeBytes += len(e.Value.(*node).key)
-	    	nodesSizeBytes += len(e.Value.(*node).value)
+	    	nodesSizeBytes += int(unsafe.Sizeof(e.Value.(*Node)))
+	    	nodesSizeBytes += int(unsafe.Sizeof(e.Value.(*Node).mutex))
+	    	nodesSizeBytes += len(e.Value.(*Node).key)
+	    	nodesSizeBytes += len(e.Value.(*Node).value)
 	    }
 	    totalCacheSizeBytes := emptyCacheSizeBytes + nodesSizeBytes
 	    fmt.Printf("totalCacheSizeBytes: %d\n", totalCacheSizeBytes)
-
-		fmt.Printf("Size of cache: %d bytes\n", unsafe.Sizeof(*c))
 		time.Sleep(30 * time.Second) // TODO make this a config value
 	}
 }
@@ -118,18 +115,18 @@ func (c *Cache) evictionHandler() {
 func (c *Cache) set(params []string) string {
 	response := ""
 	if len(params) == 3 {
-		if elem, ok := c.items[params[1]]; ok {
-			elem.Value.(*node).mutex.Lock()
-			elem.Value.(*node).value = params[2]
-			elem.Value.(*node).mutex.Unlock()
-			markAsUsed(elem)
+		if node, ok := c.items[params[1]]; ok {
+			node.mutex.Lock()
+			node.value = params[2]
+			node.mutex.Unlock()
+			markAsUsed(node)
 		} else {
-			newNode := node{key: params[1], value: params[2]}
-			toInsert := insertsChanStruct{n: &newNode, key: params[1]}
+			newNode := Node{key: params[1], value: params[2]}
+			//toInsert := insertsChanStruct{n: &newNode, key: params[1]}
 			// insert could be non blocking by using a buffered channel,
 			// but as a downside there is risk to loose inserted data
 			// if the channel fills up too quickly
-			insert(toInsert)
+			insert(&newNode)
 		}
 		response = "OK\n"
 	} else {
@@ -141,14 +138,14 @@ func (c *Cache) set(params []string) string {
 func (c *Cache) get(params []string) string {
 	response := ""
 	if len(params) == 2 {
-		if elem, ok := c.items[params[1]]; ok {
-			elem.Value.(*node).mutex.RLock()
-			value := elem.Value.(*node).value
-			elem.Value.(*node).mutex.RUnlock()
+		if node, ok := c.items[params[1]]; ok {
+			node.mutex.RLock()
+			value := node.value
+			node.mutex.RUnlock()
 			// mark as read could be non blocking by using a buffered channel,
 			// but as a downside there is risk to not mark as used some used data
 			// if the channel fills up too quickly
-			markAsUsed(elem)
+			markAsUsed(node)
 			if value == "" {
 				response = "(nil)\n"
 			} else {
@@ -167,11 +164,11 @@ func (c *Cache) mget(params []string) string {
 	response := ""
 	if 2 <= len(params) {
 		for _, key := range params[1:] {
-			if elem, ok := c.items[key]; ok {
-				elem.Value.(*node).mutex.RLock()
-				value := elem.Value.(*node).value
-				elem.Value.(*node).mutex.RUnlock()
-				markAsUsed(elem)
+			if node, ok := c.items[key]; ok {
+				node.mutex.RLock()
+				value := node.value
+				node.mutex.RUnlock()
+				markAsUsed(node)
 				if value == "" {
 					response = response + "(nil)\n"
 				} else {
@@ -228,7 +225,7 @@ func main() {
 	flag.IntVar(&maxmemory, "maxmemory", 0, "Maximum number of bytes available to use")
 	flag.Parse()
 
-	var cache = Cache{items: make(map[string]*list.Element), lruList: list.New()}
+	var cache = Cache{items: make(map[string]*Node), lruList: list.New()}
 
 	http.HandleFunc("/ping", func(w http.ResponseWriter, req *http.Request) {
 		fmt.Fprintf(w, "pong\n")
