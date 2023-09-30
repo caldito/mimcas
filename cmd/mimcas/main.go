@@ -18,7 +18,7 @@ import (
 //// lru cache data structure
 
 type Cache struct {
-	items       map[string]*Node // TODO: change to node
+	items       map[string]*Node
 	lruList     *list.List
 	memory 	    int
 	maxmemory   int
@@ -46,7 +46,7 @@ func (c *Cache) insertsHandler() {
 			markAsUsed(node)
 		} else {
 			insertLru(toInsert)
-			c.items[toInsert.key] = toInsert // TODO: BUGGGGGG
+			c.items[toInsert.key] = toInsert
 		}
 	}
 }
@@ -174,7 +174,7 @@ func (c *Cache) mget(params []string) string {
 				} else {
 					response = response + value + "\n"
 				}
-			} else { // TODO something wrong here (?)
+			} else {
 				response = response + "(nil)\n"
 			}
 		}
