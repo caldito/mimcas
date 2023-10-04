@@ -12,7 +12,6 @@ import (
 	"strings"
 	"sync"
 	"unsafe"
-    "time"
 )
 
 //// lru cache data structure
@@ -22,7 +21,8 @@ type Cache struct {
 	lruList     *list.List
 	memory 	    int
 	maxmemory   int
-	memoryMutex sync.RWMutex
+	emptyCacheSizeBytes int
+	emptyItemSizeBytes  int
 }
 
 type Node struct {
@@ -33,7 +33,7 @@ type Node struct {
 }
 
 //// inserts channel and handler function
-var inserts = make(chan *Node)
+var inserts = make(chan *Node, 100) // TODO: parameterize channel sizes. Must be different depending on the load.
 func insert(toInsert *Node) { inserts <- toInsert }
 
 func (c *Cache) insertsHandler() {
@@ -59,7 +59,7 @@ type lruOperationsChanStruct struct {
 	el *list.Element 	// for op 2
 	n *Node				// for op 0 and 1
 }
-var lruOperations = make(chan lruOperationsChanStruct)
+var lruOperations = make(chan lruOperationsChanStruct, 100)
 func markAsUsed(node *Node) { lruOperations <-lruOperationsChanStruct{n: node, op: 0} }
 func insertLru(node *Node) { lruOperations <- lruOperationsChanStruct{n: node, op: 1} }
 func removeLru(elem *list.Element) { lruOperations <- lruOperationsChanStruct{el: elem, op: 2} }
@@ -77,58 +77,74 @@ func (c *Cache) lruOperationsHandler() {
 		} else {
 			fmt.Printf("Error: invalid lru operation code")
 		}
-
 	}
 }
 
 // function for measuring memory usage by the LRU list
-func (c *Cache) evictionHandler() {
-	// TODO
-	// * WARNING The list node order can change while this is happening. This is an provisional solution.
-	//		- either lock the list while iterating or keep track when adding, editing or removing nodes
-	// * WARNING not checking for overflows. Unsafe package is called that way for a reason
-	// * WARNING probably I'm missing something, need to check the total memory footprint of the program
+var memoryDeltas = make(chan int, 100)
+func memoryDelta(delta int) { memoryDeltas <- delta }
+func (c *Cache) memoryHandler() {
+	c.emptyItemSizeBytes = int(unsafe.Sizeof(c.lruList.Front()) + unsafe.Sizeof(c.lruList.Front().Value.(*Node)) + unsafe.Sizeof(c.lruList.Front().Value.(*Node).mutex))
+	c.emptyCacheSizeBytes = int(unsafe.Sizeof(*c) + unsafe.Sizeof(c.lruList))
+	c.memory = c.emptyCacheSizeBytes
 
-
-
-	lruElementsSizeBytes := unsafe.Sizeof(c.lruList.Front()) + unsafe.Sizeof(c.lruList.Front().Value.(*Node))
-	emptyCacheSizeBytes := int(unsafe.Sizeof(*c)) + int(unsafe.Sizeof(c.lruList))
-	c.memoryMutex.Lock()
-	c.memory = emptyCacheSizeBytes
-	c.memoryMutex.Unlock()
 	for {
-	    nodesSizeBytes := c.lruList.Len() * int(lruElementsSizeBytes)
-	    for e := c.lruList.Front(); e != nil; e = e.Next() {
-	    	nodesSizeBytes += int(unsafe.Sizeof(e.Value.(*Node)))
-	    	nodesSizeBytes += int(unsafe.Sizeof(e.Value.(*Node).mutex))
-	    	nodesSizeBytes += len(e.Value.(*Node).key)
-	    	nodesSizeBytes += len(e.Value.(*Node).value)
-	    }
-	    totalCacheSizeBytes := emptyCacheSizeBytes + nodesSizeBytes
-	    fmt.Printf("totalCacheSizeBytes: %d\n", totalCacheSizeBytes)
-		time.Sleep(30 * time.Second) // TODO make this a config value
+		delta := <-memoryDeltas
+		c.memory += delta
+		if (c.maxmemory < c.memory) {
+			evict(c, c.memory - c.maxmemory)
+		}
+		// fmt.Println(c.memory) useful for debugging
 	}
+}
+
+func evict(c *Cache, delta int) {
+	
 }
 
 //// commands
 
 func (c *Cache) set(params []string) string {
+	// This function is "if" hell. Refactoring it would be good
 	response := ""
 	if len(params) == 3 {
+		itemSizeBytes := 0
 		if node, ok := c.items[params[1]]; ok {
+			delta := 0
 			node.mutex.Lock()
-			node.value = params[2]
+			if (0 < c.maxmemory){
+				itemSizeBytes = c.emptyItemSizeBytes + len(node.key) + len(params[2])
+				delta = len(params[2]) - len(node.value)
+			}
+			if (c.maxmemory < itemSizeBytes + c.emptyCacheSizeBytes && 0 < c.maxmemory){
+				response = "ERR item too big, increase maxmemory parameter.\n"
+			} else {
+				node.value = params[2]
+				if (0 < c.maxmemory){
+					memoryDelta(delta)
+				}
+				markAsUsed(node)
+				response = "OK\n"
+			}
 			node.mutex.Unlock()
-			markAsUsed(node)
 		} else {
-			newNode := Node{key: params[1], value: params[2]}
-			//toInsert := insertsChanStruct{n: &newNode, key: params[1]}
+			node := Node{key: params[1], value: params[2]}
 			// insert could be non blocking by using a buffered channel,
 			// but as a downside there is risk to loose inserted data
 			// if the channel fills up too quickly
-			insert(&newNode)
+			if (0 < c.maxmemory){
+				itemSizeBytes = c.emptyItemSizeBytes + len(node.key) + len(node.value)
+			}
+			if (c.maxmemory < itemSizeBytes + c.emptyCacheSizeBytes && 0 < c.maxmemory){
+				response = "ERR item too big, increase maxmemory parameter\n"
+			} else {
+				insert(&node)
+				if (0 < c.maxmemory){
+					memoryDelta(itemSizeBytes)
+				}
+				response = "OK\n"
+			}
 		}
-		response = "OK\n"
 	} else {
 		response = "ERR syntax error\n"
 	}
@@ -225,7 +241,7 @@ func main() {
 	flag.IntVar(&maxmemory, "maxmemory", 0, "Maximum number of bytes available to use")
 	flag.Parse()
 
-	var cache = Cache{items: make(map[string]*Node), lruList: list.New()}
+	var cache = Cache{items: make(map[string]*Node), lruList: list.New(), maxmemory: maxmemory}
 
 	http.HandleFunc("/ping", func(w http.ResponseWriter, req *http.Request) {
 		fmt.Fprintf(w, "pong\n")
@@ -237,8 +253,8 @@ func main() {
 
 	go cache.insertsHandler()
 	go cache.lruOperationsHandler()
-	if (maxmemory > 0) {
-		go cache.evictionHandler()
+	if (0 < cache.maxmemory) {
+		go cache.memoryHandler()
 	}
 
 	ln, err := net.Listen("tcp", ":"+strconv.Itoa(port))
