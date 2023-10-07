@@ -4,3 +4,4 @@ follow memcached and/or redis protocol
 client for go and java
 clustering or some sort of distributed caching
 unit tests
+upgrade to golang 1.21 and use slog for logging

@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"unsafe"
+	//"time"
 )
 
 //// lru cache data structure
@@ -94,12 +95,20 @@ func (c *Cache) memoryHandler() {
 		if (c.maxmemory < c.memory) {
 			evict(c, c.memory - c.maxmemory)
 		}
-		// fmt.Println(c.memory) useful for debugging
+		//fmt.Println(c.memory) //useful for debugging
 	}
 }
 
-func evict(c *Cache, delta int) {
-	
+func evict(c *Cache, bytesToEvict int) {
+	bytesEvicted := 0
+	for bytesEvicted < bytesToEvict{
+		backElem := c.lruList.Back()
+		c.lruList.Remove(backElem)
+		delete(c.items, backElem.Value.(*Node).key)
+		//fmt.Println("deleted: " + backElem.Value.(*Node).key)
+		bytesEvicted += c.emptyItemSizeBytes + len(backElem.Value.(*Node).key) + len(backElem.Value.(*Node).value)
+	}
+	memoryDelta(0 - bytesEvicted)
 }
 
 //// commands
@@ -129,9 +138,6 @@ func (c *Cache) set(params []string) string {
 			node.mutex.Unlock()
 		} else {
 			node := Node{key: params[1], value: params[2]}
-			// insert could be non blocking by using a buffered channel,
-			// but as a downside there is risk to loose inserted data
-			// if the channel fills up too quickly
 			if (0 < c.maxmemory){
 				itemSizeBytes = c.emptyItemSizeBytes + len(node.key) + len(node.value)
 			}
