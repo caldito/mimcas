@@ -42,7 +42,9 @@ func (c *Cache) insertsHandler() {
 			node.mutex.Lock()
 			node.value = toInsert.value
 			node.mutex.Unlock()
-			markAsUsed(node)
+			if (0 < c.maxmemory){
+				markAsUsed(node)
+			}
 		} else {
 			insertLru(toInsert)
 			c.items[toInsert.key] = toInsert
@@ -129,8 +131,8 @@ func (c *Cache) set(params []string) string {
 				node.value = params[2]
 				if (0 < c.maxmemory){
 					memoryDelta(delta)
+					markAsUsed(node)
 				}
-				markAsUsed(node)
 				response = "OK\n"
 			}
 			node.mutex.Unlock()
@@ -165,7 +167,9 @@ func (c *Cache) get(params []string) string {
 			// mark as read could be non blocking by using a buffered channel,
 			// but as a downside there is risk to not mark as used some used data
 			// if the channel fills up too quickly
-			markAsUsed(node)
+			if (0 < c.maxmemory){
+				markAsUsed(node)
+			}
 			if value == "" {
 				response = "(nil)\n"
 			} else {
@@ -188,7 +192,9 @@ func (c *Cache) mget(params []string) string {
 				node.mutex.RLock()
 				value := node.value
 				node.mutex.RUnlock()
-				markAsUsed(node)
+				if (0 < c.maxmemory){
+					markAsUsed(node)
+				}
 				if value == "" {
 					response = response + "(nil)\n"
 				} else {
