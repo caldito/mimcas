@@ -6,13 +6,11 @@ import (
 	"flag"
 	"fmt"
 	"net"
-	"net/http"
 	"os"
 	"strconv"
 	"strings"
 	"sync"
 	"unsafe"
-	//"time"
 )
 
 //// lru cache data structure
@@ -240,22 +238,12 @@ func handleConnection(cache *Cache, conn net.Conn) {
 
 func main() {
 	var port int
-	var apiport int
 	var maxmemory int
-	flag.IntVar(&port, "port", 20000, "port to listen to")
-	flag.IntVar(&apiport, "apiport", 8080, "port to listen to")
-	flag.IntVar(&maxmemory, "maxmemory", 0, "Maximum number of bytes available to use")
+	flag.IntVar(&port, "port", 20000, "Port to use for listening for incoming connections.")
+	flag.IntVar(&maxmemory, "maxmemory", -1, "Maximum number of bytes available to use. Items will be evicted following LRU policy when that limit is crossed. By default there is no limit.")
 	flag.Parse()
 
 	var cache = Cache{items: make(map[string]*Node), lruList: list.New(), maxmemory: maxmemory}
-
-	http.HandleFunc("/ping", func(w http.ResponseWriter, req *http.Request) {
-		fmt.Fprintf(w, "pong\n")
-	})
-	http.HandleFunc("/health", func(w http.ResponseWriter, req *http.Request) {
-		fmt.Fprintf(w, "ok\n")
-	})
-	go http.ListenAndServe(":"+strconv.Itoa(apiport), nil)
 
 	go cache.insertsHandler()
 	go cache.lruOperationsHandler()
