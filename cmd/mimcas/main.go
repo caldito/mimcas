@@ -220,7 +220,7 @@ func (c *Cache) delete(params []string) string {
 			delete(c.items, node.key)
 			if (0 < c.maxmemory){
 				c.lruList.Remove(node.lruElem)
-				itemSizeBytes := c.emptyItemSizeBytes + len(node.key) + len(params[2])
+				itemSizeBytes := c.emptyItemSizeBytes + len(node.key) + len(node.key)
 				memoryDelta(0 - itemSizeBytes)
 			}
 			response = "OK\n"
