@@ -68,15 +68,17 @@ func removeLru(elem *list.Element) { lruOperations <- lruOperationsChanStruct{el
 func (c *Cache) lruOperationsHandler() {
 	for {
 		lruOperation := <-lruOperations
-		if (lruOperation.op == 0) { // mark as used
-			c.lruList.MoveToFront(lruOperation.n.lruElem)
-		} else if (lruOperation.op == 1) { // insert
-			elem := c.lruList.PushFront(lruOperation.n)
-			elem.Value.(*Node).lruElem = elem
-		} else if (lruOperation.op == 2) { // delete
-
-		} else {
-			fmt.Printf("Error: invalid lru operation code")
+		switch lruOperation.op {
+			case 0: // mark as used
+				c.lruList.MoveToFront(lruOperation.n.lruElem)
+				continue
+			case 1: // insert
+				elem := c.lruList.PushFront(lruOperation.n)
+				elem.Value.(*Node).lruElem = elem
+				continue
+			//case 2: // delete
+			default:
+				fmt.Printf("Error: invalid lru operation code")
 		}
 	}
 }
@@ -226,14 +228,20 @@ func handleConnection(cache *Cache, conn net.Conn) {
 		switch params[0] {
 		case "set":
 			response = cache.set(params)
+			continue
 		case "get":
 			response = cache.get(params)
+			continue
 		case "mget":
 			response = cache.mget(params)
+		//case "del":
+		//	response = cache.delete(params)
+		//  continue
 		case "quit":
 			break
 		case "ping":
 			response = "pong\n"
+			continue
 		default: 
 			response = "ERR unknown command\n"
 		}
