@@ -212,6 +212,28 @@ func (c *Cache) mget(params []string) string {
 	return response
 }
 
+func (c *Cache) delete(params []string) string {
+	response := ""
+	if len(params) == 2 {
+		if node, ok := c.items[params[1]]; ok {
+			node.mutex.Lock()
+			delete(c.items, node.key)
+			if (0 < c.maxmemory){
+				c.lruList.Remove(node.lruElem)
+				itemSizeBytes := c.emptyItemSizeBytes + len(node.key) + len(params[2])
+				memoryDelta(0 - itemSizeBytes)
+			}
+			response = "OK\n"
+			node.mutex.Unlock()
+		} else {
+			response = "(nil)\n"
+		}
+	} else {
+		response = "ERR syntax error\n"
+	}
+	return response
+}
+
 //// connection handling and main
 
 func handleConnection(cache *Cache, conn net.Conn) {
@@ -232,9 +254,8 @@ func handleConnection(cache *Cache, conn net.Conn) {
 			response = cache.get(params)
 		case "mget":
 			response = cache.mget(params)
-		//case "del":
-		//	response = cache.delete(params)
-		//  continue
+		case "del":
+			response = cache.delete(params)
 		case "quit":
 			break
 		case "ping":
