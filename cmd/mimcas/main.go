@@ -223,17 +223,18 @@ func handleConnection(cache *Cache, conn net.Conn) {
 		data := strings.TrimSpace(string(netData))
 		params := strings.Split(data, " ")
 		response := ""
-		if params[0] == "SET" || params[0] == "set" {
+		switch params[0] {
+		case "set":
 			response = cache.set(params)
-		} else if params[0] == "GET" || params[0] == "get" {
+		case "get":
 			response = cache.get(params)
-		} else if params[0] == "MGET" || params[0] == "mget" {
+		case "mget":
 			response = cache.mget(params)
-		} else if params[0] == "QUIT" || params[0] == "quit" {
-			break
-		} else if params[0] == "PING" || params[0] == "ping" {
-			response = "PONG\n"
-		} else {
+		case "quit":
+			response = cache.set(params)
+		case "ping":
+			response = "pong\n"
+		default: 
 			response = "ERR unknown command\n"
 		}
 		conn.Write([]byte(response))
