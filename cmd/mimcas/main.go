@@ -228,10 +228,8 @@ func handleConnection(cache *Cache, conn net.Conn) {
 		switch params[0] {
 		case "set":
 			response = cache.set(params)
-			continue
 		case "get":
 			response = cache.get(params)
-			continue
 		case "mget":
 			response = cache.mget(params)
 		//case "del":
@@ -241,7 +239,6 @@ func handleConnection(cache *Cache, conn net.Conn) {
 			break
 		case "ping":
 			response = "pong\n"
-			continue
 		default: 
 			response = "ERR unknown command\n"
 		}
