@@ -68,15 +68,17 @@ func removeLru(elem *list.Element) { lruOperations <- lruOperationsChanStruct{el
 func (c *Cache) lruOperationsHandler() {
 	for {
 		lruOperation := <-lruOperations
-		if (lruOperation.op == 0) { // mark as used
-			c.lruList.MoveToFront(lruOperation.n.lruElem)
-		} else if (lruOperation.op == 1) { // insert
-			elem := c.lruList.PushFront(lruOperation.n)
-			elem.Value.(*Node).lruElem = elem
-		} else if (lruOperation.op == 2) { // delete
-
-		} else {
-			fmt.Printf("Error: invalid lru operation code")
+		switch lruOperation.op {
+			case 0: // mark as used
+				c.lruList.MoveToFront(lruOperation.n.lruElem)
+				continue
+			case 1: // insert
+				elem := c.lruList.PushFront(lruOperation.n)
+				elem.Value.(*Node).lruElem = elem
+				continue
+			//case 2: // delete
+			default:
+				fmt.Printf("Error: invalid lru operation code")
 		}
 	}
 }
@@ -210,6 +212,28 @@ func (c *Cache) mget(params []string) string {
 	return response
 }
 
+func (c *Cache) delete(params []string) string {
+	response := ""
+	if len(params) == 2 {
+		if node, ok := c.items[params[1]]; ok {
+			node.mutex.Lock()
+			delete(c.items, node.key)
+			if (0 < c.maxmemory){
+				c.lruList.Remove(node.lruElem)
+				itemSizeBytes := c.emptyItemSizeBytes + len(node.key) + len(node.key)
+				memoryDelta(0 - itemSizeBytes)
+			}
+			response = "OK\n"
+			node.mutex.Unlock()
+		} else {
+			response = "(nil)\n"
+		}
+	} else {
+		response = "ERR syntax error\n"
+	}
+	return response
+}
+
 //// connection handling and main
 
 func handleConnection(cache *Cache, conn net.Conn) {
@@ -223,17 +247,20 @@ func handleConnection(cache *Cache, conn net.Conn) {
 		data := strings.TrimSpace(string(netData))
 		params := strings.Split(data, " ")
 		response := ""
-		if params[0] == "SET" || params[0] == "set" {
+		switch params[0] {
+		case "set":
 			response = cache.set(params)
-		} else if params[0] == "GET" || params[0] == "get" {
+		case "get":
 			response = cache.get(params)
-		} else if params[0] == "MGET" || params[0] == "mget" {
+		case "mget":
 			response = cache.mget(params)
-		} else if params[0] == "QUIT" || params[0] == "quit" {
+		case "del":
+			response = cache.delete(params)
+		case "quit":
 			break
-		} else if params[0] == "PING" || params[0] == "ping" {
-			response = "PONG\n"
-		} else {
+		case "ping":
+			response = "pong\n"
+		default: 
 			response = "ERR unknown command\n"
 		}
 		conn.Write([]byte(response))
