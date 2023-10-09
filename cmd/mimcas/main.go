@@ -231,7 +231,7 @@ func handleConnection(cache *Cache, conn net.Conn) {
 		case "mget":
 			response = cache.mget(params)
 		case "quit":
-			response = cache.set(params)
+			break
 		case "ping":
 			response = "pong\n"
 		default: 
