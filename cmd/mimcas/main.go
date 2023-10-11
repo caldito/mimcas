@@ -175,7 +175,7 @@ func (c *Cache) get(params []string) string {
 			if value == "" {
 				response = "(nil)\n"
 			} else {
-				response = value + "\n"
+				response = "+OK\n"+ value + "\n"
 			}
 		} else {
 			response = "(nil)\n"
@@ -200,7 +200,7 @@ func (c *Cache) mget(params []string) string {
 				if value == "" {
 					response = response + "(nil)\n"
 				} else {
-					response = response + value + "\n"
+					response = response + "+OK\n" + value + "\n"
 				}
 			} else {
 				response = response + "(nil)\n"
