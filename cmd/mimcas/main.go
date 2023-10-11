@@ -118,19 +118,20 @@ func evict(c *Cache, bytesToEvict int) {
 func (c *Cache) set(params []string) string {
 	// This function is "if" hell. Refactoring it would be good
 	response := ""
-	if len(params) == 3 {
+	if len(params) >= 3 {
 		itemSizeBytes := 0
+        value := strings.Join(params[2:], " ")
 		if node, ok := c.items[params[1]]; ok {
 			delta := 0
 			node.mutex.Lock()
 			if (0 < c.maxmemory){
-				itemSizeBytes = c.emptyItemSizeBytes + len(node.key) + len(params[2])
-				delta = len(params[2]) - len(node.value)
+				itemSizeBytes = c.emptyItemSizeBytes + len(node.key) + len(value)
+				delta = len(value) - len(node.value)
 			}
 			if (c.maxmemory < itemSizeBytes + c.emptyCacheSizeBytes && 0 < c.maxmemory){
 				response = "ERR item too big, increase maxmemory parameter.\n"
 			} else {
-				node.value = params[2]
+				node.value = value
 				if (0 < c.maxmemory){
 					memoryDelta(delta)
 					markAsUsed(node)
@@ -139,7 +140,7 @@ func (c *Cache) set(params []string) string {
 			}
 			node.mutex.Unlock()
 		} else {
-			node := Node{key: params[1], value: params[2]}
+			node := Node{key: params[1], value: value}
 			if (0 < c.maxmemory){
 				itemSizeBytes = c.emptyItemSizeBytes + len(node.key) + len(node.value)
 			}
@@ -175,7 +176,7 @@ func (c *Cache) get(params []string) string {
 			if value == "" {
 				response = "(nil)\n"
 			} else {
-				response = value + "\n"
+				response = "+OK\n"+ value + "\n"
 			}
 		} else {
 			response = "(nil)\n"
@@ -200,7 +201,7 @@ func (c *Cache) mget(params []string) string {
 				if value == "" {
 					response = response + "(nil)\n"
 				} else {
-					response = response + value + "\n"
+					response = response + "+OK\n" + value + "\n"
 				}
 			} else {
 				response = response + "(nil)\n"
