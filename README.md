@@ -31,22 +31,30 @@ Example:
 $ nc localhost 20000
 get a
 NULL
+
 set a 2
 OK
+
 get a 
 OK
 2
+
 set b 3
 OK
+
 mget a b
 OK
 2
+
 OK
 3
+
 del a
 OK
+
 get a
 NULL
+
 quit
 ```
 

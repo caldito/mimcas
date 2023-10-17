@@ -264,6 +264,7 @@ func handleConnection(cache *Cache, conn net.Conn) {
 		default: 
 			response = "ERR unknown command\n"
 		}
+		response += "\n"
 		conn.Write([]byte(response))
 	}
 	conn.Close()
