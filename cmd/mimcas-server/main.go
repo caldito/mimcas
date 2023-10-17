@@ -16,24 +16,24 @@ import (
 //// lru cache data structure
 
 type Cache struct {
-	items       map[string]*Node
-	lruList     *list.List
-	memory 	    int
-	maxmemory   int
+	items               map[string]*Node
+	lruList             *list.List
+	memory              int
+	maxmemory           int
 	emptyCacheSizeBytes int
 	emptyItemSizeBytes  int
 }
 
 type Node struct {
-	mutex sync.RWMutex
-	key   string
-	value string
+	mutex   sync.RWMutex
+	key     string
+	value   string
 	lruElem *list.Element
 }
 
 //// inserts channel and handler function
 var inserts = make(chan *Node, 100) // TODO: parameterize channel sizes. Must be different depending on the load.
-func insert(toInsert *Node) { inserts <- toInsert }
+func insert(toInsert *Node)         { inserts <- toInsert }
 
 func (c *Cache) insertsHandler() {
 	for {
@@ -42,7 +42,7 @@ func (c *Cache) insertsHandler() {
 			node.mutex.Lock()
 			node.value = toInsert.value
 			node.mutex.Unlock()
-			if (0 < c.maxmemory){
+			if 0 < c.maxmemory {
 				markAsUsed(node)
 			}
 		} else {
@@ -54,37 +54,40 @@ func (c *Cache) insertsHandler() {
 
 //// lruOperationsHandler goroutine and stuff related to it
 type lruOperationsChanStruct struct {
-	op int	// 0 mark as used
-			// 1 insert
-			// 2 remove
-	el *list.Element 	// for op 2
-	n *Node				// for op 0 and 1
+	op int // 0 mark as used
+	// 1 insert
+	// 2 remove
+	el *list.Element // for op 2
+	n  *Node         // for op 0 and 1
 }
+
 var lruOperations = make(chan lruOperationsChanStruct, 100)
-func markAsUsed(node *Node) { lruOperations <-lruOperationsChanStruct{n: node, op: 0} }
-func insertLru(node *Node) { lruOperations <- lruOperationsChanStruct{n: node, op: 1} }
+
+func markAsUsed(node *Node)        { lruOperations <- lruOperationsChanStruct{n: node, op: 0} }
+func insertLru(node *Node)         { lruOperations <- lruOperationsChanStruct{n: node, op: 1} }
 func removeLru(elem *list.Element) { lruOperations <- lruOperationsChanStruct{el: elem, op: 2} }
 
 func (c *Cache) lruOperationsHandler() {
 	for {
 		lruOperation := <-lruOperations
 		switch lruOperation.op {
-			case 0: // mark as used
-				c.lruList.MoveToFront(lruOperation.n.lruElem)
-				continue
-			case 1: // insert
-				elem := c.lruList.PushFront(lruOperation.n)
-				elem.Value.(*Node).lruElem = elem
-				continue
-			//case 2: // delete
-			default:
-				fmt.Printf("Error: invalid lru operation code")
+		case 0: // mark as used
+			c.lruList.MoveToFront(lruOperation.n.lruElem)
+			continue
+		case 1: // insert
+			elem := c.lruList.PushFront(lruOperation.n)
+			elem.Value.(*Node).lruElem = elem
+			continue
+		//case 2: // delete
+		default:
+			fmt.Printf("Error: invalid lru operation code")
 		}
 	}
 }
 
 // function for measuring memory usage by the LRU list
 var memoryDeltas = make(chan int, 100)
+
 func memoryDelta(delta int) { memoryDeltas <- delta }
 func (c *Cache) memoryHandler() {
 	c.emptyItemSizeBytes = int(unsafe.Sizeof(c.lruList.Front()) + unsafe.Sizeof(c.lruList.Front().Value.(*Node)) + unsafe.Sizeof(c.lruList.Front().Value.(*Node).mutex))
@@ -94,8 +97,8 @@ func (c *Cache) memoryHandler() {
 	for {
 		delta := <-memoryDeltas
 		c.memory += delta
-		if (c.maxmemory < c.memory) {
-			evict(c, c.memory - c.maxmemory)
+		if c.maxmemory < c.memory {
+			evict(c, c.memory-c.maxmemory)
 		}
 		//fmt.Println(c.memory) //useful for debugging
 	}
@@ -103,7 +106,7 @@ func (c *Cache) memoryHandler() {
 
 func evict(c *Cache, bytesToEvict int) {
 	bytesEvicted := 0
-	for bytesEvicted < bytesToEvict{
+	for bytesEvicted < bytesToEvict {
 		backElem := c.lruList.Back()
 		c.lruList.Remove(backElem)
 		delete(c.items, backElem.Value.(*Node).key)
@@ -120,19 +123,19 @@ func (c *Cache) set(params []string) string {
 	response := ""
 	if len(params) >= 3 {
 		itemSizeBytes := 0
-        value := strings.Join(params[2:], " ")
+		value := strings.Join(params[2:], " ")
 		if node, ok := c.items[params[1]]; ok {
 			delta := 0
 			node.mutex.Lock()
-			if (0 < c.maxmemory){
+			if 0 < c.maxmemory {
 				itemSizeBytes = c.emptyItemSizeBytes + len(node.key) + len(value)
 				delta = len(value) - len(node.value)
 			}
-			if (c.maxmemory < itemSizeBytes + c.emptyCacheSizeBytes && 0 < c.maxmemory){
+			if c.maxmemory < itemSizeBytes+c.emptyCacheSizeBytes && 0 < c.maxmemory {
 				response = "ERR item too big, increase maxmemory parameter.\n"
 			} else {
 				node.value = value
-				if (0 < c.maxmemory){
+				if 0 < c.maxmemory {
 					memoryDelta(delta)
 					markAsUsed(node)
 				}
@@ -141,14 +144,14 @@ func (c *Cache) set(params []string) string {
 			node.mutex.Unlock()
 		} else {
 			node := Node{key: params[1], value: value}
-			if (0 < c.maxmemory){
+			if 0 < c.maxmemory {
 				itemSizeBytes = c.emptyItemSizeBytes + len(node.key) + len(node.value)
 			}
-			if (c.maxmemory < itemSizeBytes + c.emptyCacheSizeBytes && 0 < c.maxmemory){
+			if c.maxmemory < itemSizeBytes+c.emptyCacheSizeBytes && 0 < c.maxmemory {
 				response = "ERR item too big, increase maxmemory parameter\n"
 			} else {
 				insert(&node)
-				if (0 < c.maxmemory){
+				if 0 < c.maxmemory {
 					memoryDelta(itemSizeBytes)
 				}
 				response = "OK\n"
@@ -170,13 +173,13 @@ func (c *Cache) get(params []string) string {
 			// mark as read could be non blocking by using a buffered channel,
 			// but as a downside there is risk to not mark as used some used data
 			// if the channel fills up too quickly
-			if (0 < c.maxmemory){
+			if 0 < c.maxmemory {
 				markAsUsed(node)
 			}
 			if value == "" {
 				response = "NULL\n"
 			} else {
-				response = "OK\n"+ value + "\n"
+				response = "OK\n" + value + "\n"
 			}
 		} else {
 			response = "NULL\n"
@@ -195,7 +198,7 @@ func (c *Cache) mget(params []string) string {
 				node.mutex.RLock()
 				value := node.value
 				node.mutex.RUnlock()
-				if (0 < c.maxmemory){
+				if 0 < c.maxmemory {
 					markAsUsed(node)
 				}
 				if value == "" {
@@ -219,7 +222,7 @@ func (c *Cache) delete(params []string) string {
 		if node, ok := c.items[params[1]]; ok {
 			node.mutex.Lock()
 			delete(c.items, node.key)
-			if (0 < c.maxmemory){
+			if 0 < c.maxmemory {
 				c.lruList.Remove(node.lruElem)
 				itemSizeBytes := c.emptyItemSizeBytes + len(node.key) + len(node.key)
 				memoryDelta(0 - itemSizeBytes)
@@ -261,7 +264,7 @@ func handleConnection(cache *Cache, conn net.Conn) {
 			break
 		case "ping":
 			response = "pong\n"
-		default: 
+		default:
 			response = "ERR unknown command\n"
 		}
 		response += "\n"
@@ -282,7 +285,7 @@ func main() {
 
 	go cache.insertsHandler()
 	go cache.lruOperationsHandler()
-	if (0 < cache.maxmemory) {
+	if 0 < cache.maxmemory {
 		go cache.memoryHandler()
 	}
 
