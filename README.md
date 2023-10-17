@@ -8,27 +8,37 @@ Multithreaded In-Memory Cache Server.
 ## Build
 You can build the project running `make`. The binary will then be available at `bin/mimcas-server`.
 
-With make run following command does the same but also starts the server
-```
-make run
-```
+Command `make run` does the same but it will also start the server.
 
 ## Usage
 ### Available commands
-- *set:* Sets a value for a new or existing key
-- *get* Retrieves the value of a single key
-- *mget* Retrieves the value of one or more keys
-- *del* Removes 
-- *quit* Finish session
-- *ping* Responds "pong"
+- **set:** Sets a value for a new or existing key
+- **get** Retrieves the value of a single key
+- **mget** Retrieves the value of one or more keys
+- **del** Removes an item from the cache
+- **quit** Quit client session
+- **ping** Responds "pong"
+
+### Flags
+None of them are required. The available flags are:
+- `-port`: Port to use for listening for incoming connections. By default it will be `20000`.
+- `-maxmemory`: Maximum number of bytes available to use. Items will be evicted following LRU policy when that limit is crossed. By default there is no limit.
 
 
 ## Clients
-For now there is no client but you can connect using tools like netcat as the protocol is quite simple.
+For now there is no client but you can connect using tools like netcat as the protocol is quite simple. You can see an example below
 
-Example:
+
+
+First of all start the server:
 ```
-$ nc localhost 20000
+make # build the program
+./bin/mimcas-server # start the server
+```
+
+Then use netcat as a client for connecting to it and issuing commands:
+```
+nc localhost 20000
 get a
 NULL
 
