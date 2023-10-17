@@ -174,12 +174,12 @@ func (c *Cache) get(params []string) string {
 				markAsUsed(node)
 			}
 			if value == "" {
-				response = "(nil)\n"
+				response = "NULL\n"
 			} else {
 				response = "OK\n"+ value + "\n"
 			}
 		} else {
-			response = "(nil)\n"
+			response = "NULL\n"
 		}
 	} else {
 		response = "ERR syntax error\n"
@@ -199,12 +199,12 @@ func (c *Cache) mget(params []string) string {
 					markAsUsed(node)
 				}
 				if value == "" {
-					response = response + "(nil)\n"
+					response = response + "NULL\n"
 				} else {
 					response = response + "OK\n" + value + "\n"
 				}
 			} else {
-				response = response + "(nil)\n"
+				response = response + "NULL\n"
 			}
 		}
 	} else {
@@ -227,7 +227,7 @@ func (c *Cache) delete(params []string) string {
 			response = "OK\n"
 			node.mutex.Unlock()
 		} else {
-			response = "(nil)\n"
+			response = "NULL\n"
 		}
 	} else {
 		response = "ERR syntax error\n"
