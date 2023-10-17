@@ -1,46 +1,59 @@
-# mimcas
+# Mimcas
 Multithreaded In-Memory Cache Server.
 
-## Usage
+![Apache 2.0 License](https://img.shields.io/hexpm/l/plug.svg)
+[![Go Reference](https://pkg.go.dev/badge/github.com/caldito/mimcas.svg)](https://pkg.go.dev/github.com/caldito/mimcas)
+[![Go Report Card](https://goreportcard.com/badge/github.com/caldito/mimcas)](https://goreportcard.com/report/github.com/caldito/mimcas)
 
-### Start the server
-Run the following command to start the server. It listens for connections on port `20000`.
+## Build
+You can build the project running `make`. The binary will then be available at `bin/mimcas-server`.
+
+With make run following command does the same but also starts the server
 ```
 make run
 ```
 
-## Available commands
+## Usage
+### Available commands
+- *set:* Sets a value for a new or existing key
+- *get* Retrieves the value of a single key
+- *mget* Retrieves the value of one or more keys
+- *del* Removes 
+- *quit* Finish session
+- *ping* Responds "pong"
 
-### set
-Sets a value for a new or existing key
 
-### get
-Retrieves the value of a key
+## Clients
+For now there is no client but you can connect using tools like netcat as the protocol is quite simple.
 
-### mget
-Retrieves the value of one or multiple keys
-
-## Connect with a client and run commands
-As the client as of now you can use netcat.
-Example
+Example:
 ```
 $ nc localhost 20000
 get a
-(nil)
-set a 1
+NULL
+set a 2
 OK
-get a
-1
-set b 2
+get a 
+OK
+2
+set b 3
 OK
 mget a b
-1
+OK
 2
-mget b a
-2
-1
+OK
+3
+del a
+OK
+get a
+NULL
 quit
 ```
 
 ## License
 This project is licensed under the Apache License Version 2.0
+
+## Contributing
+Pull requests are welcomed and encouraged. For questions, feature requests and bug reports, please open an issue.
+
+There is also a [TODO](https://github.com/caldito/mimcas/blob/main/TODO) file containing work planned to do and also [issues on GitHub](https://github.com/caldito/mimcas/issues).
