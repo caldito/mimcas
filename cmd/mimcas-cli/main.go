@@ -28,50 +28,56 @@ func main() {
 		reader := bufio.NewReader(os.Stdin)
 		fmt.Print(">> ")
 		input, _ := reader.ReadString('\n')
+		input = strings.TrimSpace(input)
 		params := strings.Split(input, " ")
 		response := ""
-		switch params[0] { // each command needs a different processing of the response because it spects different lines
+		switch params[0] { // each command needs a different processing of the response because it expects different lines
 		case "set":
-			// check > 3 params
-			if len(params) < 3 {
-				response = "Error: syntax for set is \"set <key> <value>\""
-			} else {
-				// prepare message to send to the server
+			if len(params) >= 3 {
 				message := strings.Join(params, " ")
 				fmt.Fprintf(c, message+"\n")
 				response, _ = bufio.NewReader(c).ReadString('\n')
-				// process response
+			} else {
+				response = "Error: syntax for set is \"set <key> <value>\"\n"
 			}
-			//response = set(params)
 		case "get":
-			message := strings.Join(params, " ")
-			fmt.Fprintf(c, message+"\n")
-			response, _ = bufio.NewReader(c).ReadString('\n')
-			// check = 2  params
-			//response = get(params)
+			if len(params) == 2 {
+				message := strings.Join(params, " ")
+				fmt.Fprintf(c, message+"\n")
+				response, _ = bufio.NewReader(c).ReadString('\n')
+			} else {
+				response = "Error: syntax for get is \"get <key>\"\n"
+			}
 		case "mget":
-			//check >= 2  params
-			message := strings.Join(params, " ")
-			fmt.Fprintf(c, message+"\n")
-			response, _ = bufio.NewReader(c).ReadString('\n')
-			//response = mget(params)
+			if len(params) >= 2 {
+				message := strings.Join(params, " ")
+				fmt.Fprintf(c, message+"\n")
+				response, _ = bufio.NewReader(c).ReadString('\n')
+			} else {
+				response = "Error: syntax for mget is \"mget <key1> <key2> ...\"\n"
+			}
+
 		case "del":
-			message := strings.Join(params, " ")
-			fmt.Fprintf(c, message+"\n")
-			response, _ = bufio.NewReader(c).ReadString('\n')
-			//response = delete(params)
-		case "quit":
-			message := strings.Join(params, " ")
-			fmt.Fprintf(c, message+"\n")
-			response, _ = bufio.NewReader(c).ReadString('\n')
-			break
+			if len(params) == 2 {
+				message := strings.Join(params, " ")
+				fmt.Fprintf(c, message+"\n")
+				response, _ = bufio.NewReader(c).ReadString('\n')
+			} else {
+				response = "Error: syntax for del is \"del <key>\"\n"
+			}
 		case "ping":
-			message := strings.Join(params, " ")
-			fmt.Fprintf(c, message+"\n")
-			response, _ = bufio.NewReader(c).ReadString('\n')
-			//response = "pong\n"
+			if len(params) == 1 {
+				message := strings.Join(params, " ")
+				fmt.Fprintf(c, message+"\n")
+				response, _ = bufio.NewReader(c).ReadString('\n')
+			} else {
+				response = "Error: syntax for ping is \"ping\"\n"
+			}
+		case "quit":
+			break
 		default:
-			response = "ERR unknown command\n"
+			fmt.Println(params[0])
+			response = "Error: unknown command\n"
 		}
 		fmt.Print("->: " + response)
 	}
