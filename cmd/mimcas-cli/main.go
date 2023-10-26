@@ -24,10 +24,12 @@ func main() {
 			return
 	}
 
+	inputReader := bufio.NewReader(os.Stdin)
+	serverReader := bufio.NewReader(c)
+
 	for {
-		reader := bufio.NewReader(os.Stdin)
 		fmt.Print(">> ")
-		input, _ := reader.ReadString('\n')
+		input, _ := inputReader.ReadString('\n')
 		input = strings.TrimSpace(input)
 		params := strings.Split(input, " ")
 		response := ""
@@ -36,7 +38,7 @@ func main() {
 			if len(params) >= 3 {
 				message := strings.Join(params, " ")
 				fmt.Fprintf(c, message+"\n")
-				response, _ = bufio.NewReader(c).ReadString('\n')
+				response, _ = serverReader.ReadString('\n')
 			} else {
 				response = "Error: syntax for set is \"set <key> <value>\"\n"
 			}
@@ -44,7 +46,11 @@ func main() {
 			if len(params) == 2 {
 				message := strings.Join(params, " ")
 				fmt.Fprintf(c, message+"\n")
-				response, _ = bufio.NewReader(c).ReadString('\n')
+				response, _ = serverReader.ReadString('\n')
+				if response == "OK\n" {
+					value, _:= serverReader.ReadString('\n')
+					response += value
+				}
 			} else {
 				response = "Error: syntax for get is \"get <key>\"\n"
 			}
@@ -52,7 +58,14 @@ func main() {
 			if len(params) >= 2 {
 				message := strings.Join(params, " ")
 				fmt.Fprintf(c, message+"\n")
-				response, _ = bufio.NewReader(c).ReadString('\n')
+				for _, _ = range params[1:] {
+					status, _ := serverReader.ReadString('\n')
+					response += status
+					if status == "OK\n" {
+						value, _:= serverReader.ReadString('\n')
+						response += value
+					}
+				}		
 			} else {
 				response = "Error: syntax for mget is \"mget <key1> <key2> ...\"\n"
 			}
@@ -61,7 +74,7 @@ func main() {
 			if len(params) == 2 {
 				message := strings.Join(params, " ")
 				fmt.Fprintf(c, message+"\n")
-				response, _ = bufio.NewReader(c).ReadString('\n')
+				response, _ = serverReader.ReadString('\n')
 			} else {
 				response = "Error: syntax for del is \"del <key>\"\n"
 			}
@@ -69,7 +82,7 @@ func main() {
 			if len(params) == 1 {
 				message := strings.Join(params, " ")
 				fmt.Fprintf(c, message+"\n")
-				response, _ = bufio.NewReader(c).ReadString('\n')
+				response, _ = serverReader.ReadString('\n')
 			} else {
 				response = "Error: syntax for ping is \"ping\"\n"
 			}
@@ -79,6 +92,6 @@ func main() {
 			fmt.Println(params[0])
 			response = "Error: unknown command\n"
 		}
-		fmt.Print("->: " + response)
+		fmt.Print(response)
 	}
 }
