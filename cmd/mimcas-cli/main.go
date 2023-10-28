@@ -92,7 +92,7 @@ func main() {
 				response = "Error: syntax for ping is \"ping\"\n"
 			}
 		case "quit":
-			break
+			os.Exit(0)
 		default:
 			fmt.Println(params[0])
 			response = "Error: unknown command\n"
