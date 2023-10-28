@@ -26,46 +26,36 @@ None of them are required. The available flags are:
 
 
 ## Clients
-For now there is no client but you can connect using tools like netcat as the protocol is quite simple. You can see an example below
-
-
+The only client for now is the CLI one. It will available when building the source code as well.
 
 First of all start the server:
 ```
-make # build the program
-./bin/mimcas-server # start the server
+$ make # build the program
+$ ./bin/mimcas-server # start the server
 ```
 
-Then use netcat as a client for connecting to it and issuing commands:
+Then connect with the CLI:
 ```
-nc localhost 20000
-get a
+$ ./bin/mimcas-cli
+>> get a
 NULL
-
-set a 2
+>> set a 2
 OK
-
-get a 
+>> get a
 OK
 2
-
-set b 3
+>> set b 3
 OK
-
-mget a b
+>> mget a b
 OK
 2
-
 OK
 3
-
-del a
+>> del a
 OK
-
-get a
+>> get a 
 NULL
-
-quit
+>> quit
 ```
 
 ## License
