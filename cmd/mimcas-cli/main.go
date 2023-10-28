@@ -15,6 +15,11 @@ func main() {
 	var port int
 	flag.StringVar(&host, "host", "localhost", "Host to use for connection.")
 	flag.IntVar(&port, "port", 20000, "Port to use for connection.")
+	flag.Usage = func() {
+		fmt.Fprintf(flag.CommandLine.Output(), "Usage of %s:\n", os.Args[0])
+		flag.PrintDefaults()
+		fmt.Println("\nAvailable commands: set, get, mget, del, ping, quit")
+	}
 	flag.Parse()
 
 
