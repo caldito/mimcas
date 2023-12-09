@@ -33,7 +33,7 @@ To build and run the server run the following two commands:
 make
 ./bin/mimcas-server
 ```
-#### Server flags
+### Server flags
 None of them are required. The available flags are:
 - `-port`: Port to use for listening for incoming connections. By default it will be `20000`.
 - `-maxmemory`: Maximum number of bytes available to use. Items will be evicted following LRU policy when that limit is crossed. By default there is no limit.
@@ -69,7 +69,7 @@ OK
 NULL
 >> quit
 ```
-#### Client flags
+### Client flags
 None of them are required. The available flags are:
 - `-host`: Host to use when opening a connection. By default it will be `localhost`.
 - `-port`: Port to use when opening a connection. By default it will be `20000`.
