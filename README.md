@@ -27,7 +27,7 @@ To start the mimcas server using docker run:
 ```
 docker run -p 20000:20000 pablogcaldito/mimcas-server:v0.1.0
 ```
-### Standalone
+### Standalone binary
 To build and run the server run the following two commands:
 ```
 make
@@ -40,10 +40,15 @@ None of them are required. The available flags are:
 
 ## Connecting with a client
 The only client for now is the CLI one. It will available when building the source code as well.
-### Standalone build 
-Then connect with the CLI and you can issue commands to the server:
+### Docker
 ```
-$ ./bin/mimcas-cli
+docker run --network host -it pablogcaldito/mimcas-cli:v0.1.0 mimcas-cli
+```
+### Standalone binary
+Build and execute the resulting binary. Then connect with the CLI and you can issue commands to the server:
+```
+make
+./bin/mimcas-cli
 >> get a
 NULL
 >> set a 2

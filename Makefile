@@ -32,4 +32,5 @@ deps:
 	$(GODEPS) -d ./...
 
 build-docker: build
-	docker build . -t pablogcaldito/mimcas-server:$(VERSION)
+	docker build . -f Dockerfile-server -t pablogcaldito/mimcas-server:$(VERSION)
+	docker build . -f Dockerfile-cli -t pablogcaldito/mimcas-cli:$(VERSION)
