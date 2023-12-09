@@ -16,7 +16,7 @@ Available commands:
 You can build the project running `make`. The binaries will then be available at `bin/mimcas-server` and `bin/mimcas-cli`.
 
 Dependencies:
-- `go` >= v1.18
+- `go` >= v1.17
 - `make`
 
 Command `make run` does the same but it will also start the server.
