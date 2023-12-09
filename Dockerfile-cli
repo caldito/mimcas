@@ -1,0 +1,4 @@
+FROM alpine:3.19.0
+MAINTAINER pablo@caldito.me
+COPY bin/mimcas-cli /bin/
+RUN chmod +x /bin/mimcas-cli

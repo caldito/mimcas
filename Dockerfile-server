@@ -1,4 +1,4 @@
-FROM alpine:3.18.4
+FROM alpine:3.19.0
 MAINTAINER pablo@caldito.me
 COPY bin/mimcas-server /bin/
 RUN chmod +x /bin/mimcas-server
