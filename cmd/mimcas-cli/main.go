@@ -22,11 +22,10 @@ func main() {
 	}
 	flag.Parse()
 
-
-	c, err := net.Dial("tcp", host + ":" + strconv.Itoa(port))
+	c, err := net.Dial("tcp", host+":"+strconv.Itoa(port))
 	if err != nil {
-			fmt.Println(err)
-			return
+		fmt.Println(err)
+		return
 	}
 
 	inputReader := bufio.NewReader(os.Stdin)
@@ -53,7 +52,7 @@ func main() {
 				fmt.Fprintf(c, message+"\n")
 				response, _ = serverReader.ReadString('\n')
 				if response == "OK\n" {
-					value, _:= serverReader.ReadString('\n')
+					value, _ := serverReader.ReadString('\n')
 					response += value
 				}
 			} else {
@@ -63,14 +62,14 @@ func main() {
 			if len(params) >= 2 {
 				message := strings.Join(params, " ")
 				fmt.Fprintf(c, message+"\n")
-				for _, _ = range params[1:] {
+				for range params[1:] {
 					status, _ := serverReader.ReadString('\n')
 					response += status
 					if status == "OK\n" {
-						value, _:= serverReader.ReadString('\n')
+						value, _ := serverReader.ReadString('\n')
 						response += value
 					}
-				}		
+				}
 			} else {
 				response = "Error: syntax for mget is \"mget <key1> <key2> ...\"\n"
 			}
