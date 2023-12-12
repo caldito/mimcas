@@ -279,20 +279,25 @@ func main() {
 	flag.IntVar(&port, "port", 20000, "Port to use for listening for incoming connections.")
 	flag.IntVar(&maxmemory, "maxmemory", -1, "Maximum number of bytes available to use. Items will be evicted following LRU policy when that limit is crossed. By default there is no limit.")
 	flag.Parse()
-
+	fmt.Println("Mimcas initializing...")
 	var cache = Cache{items: make(map[string]*Node), lruList: list.New(), maxmemory: maxmemory}
 
 	go cache.insertsHandler()
 	go cache.lruOperationsHandler()
-	if 0 < cache.maxmemory {
-		go cache.memoryHandler()
-	}
-
 	ln, err := net.Listen("tcp", ":"+strconv.Itoa(port))
 	if err != nil {
 		fmt.Println("Error listening")
 		os.Exit(2)
 	}
+
+	if 0 < cache.maxmemory {
+		go cache.memoryHandler()
+		fmt.Println("Maximum memory: " + strconv.Itoa(cache.maxmemory) + " bytes. LRU eviction policy.")
+	} else {
+		fmt.Println("No maximum memory set and eviction disabled")
+	}
+
+	fmt.Println("Server ready and listening for connections on port " + strconv.Itoa(port))
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
