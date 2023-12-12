@@ -35,6 +35,12 @@ The only client for now is the CLI one. It will available when building the sour
 - **Option 1: Docker** `docker run --network host -it pablogcaldito/mimcas-cli:v0.1.0 mimcas-cli [ARGUMENTS]` 
 - **Option 2: Build the source** `make && ./bin/mimcas-cli [ARGUMENTS]`.
 
+### Client flags
+None of them are required. The available flags are:
+- `-host`: Host to use when opening a connection. By default it will be `localhost`.
+- `-port`: Port to use when opening a connection. By default it will be `20000`.
+
+
 ### Usage example
 ```
 >> get a
@@ -57,10 +63,6 @@ OK
 NULL
 >> quit
 ```
-### Client flags
-None of them are required. The available flags are:
-- `-host`: Host to use when opening a connection. By default it will be `localhost`.
-- `-port`: Port to use when opening a connection. By default it will be `20000`.
 
 ## License
 This project is licensed under the Apache License Version 2.0
