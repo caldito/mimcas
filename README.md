@@ -13,9 +13,18 @@ Available commands:
 - **quit** Quit client session
 - **ping** Responds "pong"
 
+## Build
+You can build the project running `make`. The binaries will then be available at `bin/mimcas-server` and `bin/mimcas-cli`.
+
+Dependencies:
+- `go` >= v1.17
+- `make`
+
+Command `make run` does the same but it will also start the server.
+
 ## Running the server
-- **Option 1: Docker** `docker run -p 20000:20000 pablogcaldito/mimcas-server:v0.1.0`
-- **Option 2: Build the source** `make && ./bin/mimcas-server`. Requirements available at [build section](https://github.com/caldito/mimcas#build).
+- **Option 1: Docker** `docker run -p 20000:20000 pablogcaldito/mimcas-server:v0.1.0 [ARGUMENTS]`
+- **Option 2: Build the source** `make && ./bin/mimcas-server [ARGUMENTS]`.
 ### Server flags
 None of them are required. The available flags are:
 - `-port`: Port to use for listening for incoming connections. By default it will be `20000`.
@@ -23,8 +32,8 @@ None of them are required. The available flags are:
 
 ## Connecting with a client
 The only client for now is the CLI one. It will available when building the source code as well.
-- **Option 1: Docker** `docker run --network host -it pablogcaldito/mimcas-cli:v0.1.0 mimcas-cli`
-- **Option 2: Build the source** `make && ./bin/mimcas-cli`. Requirements available at [build section](https://github.com/caldito/mimcas#build).
+- **Option 1: Docker** `docker run --network host -it pablogcaldito/mimcas-cli:v0.1.0 mimcas-cli [ARGUMENTS]` 
+- **Option 2: Build the source** `make && ./bin/mimcas-cli [ARGUMENTS]`.
 
 ### Usage example
 ```
@@ -53,14 +62,6 @@ None of them are required. The available flags are:
 - `-host`: Host to use when opening a connection. By default it will be `localhost`.
 - `-port`: Port to use when opening a connection. By default it will be `20000`.
 
-## Build
-You can build the project running `make`. The binaries will then be available at `bin/mimcas-server` and `bin/mimcas-cli`.
-
-Dependencies:
-- `go` >= v1.17
-- `make`
-
-Command `make run` does the same but it will also start the server.
 ## License
 This project is licensed under the Apache License Version 2.0
 
