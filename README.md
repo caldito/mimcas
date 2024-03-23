@@ -23,8 +23,9 @@ Dependencies:
 Command `make run` does the same but it will also start the server.
 
 ## Running the server
-- **Option 1: Docker** `docker run -p 20000:20000 pablogcaldito/mimcas-server:v0.1.0 [ARGUMENTS]`
-- **Option 2: Build the source** `make && ./bin/mimcas-server [ARGUMENTS]`.
+- **Option 1: Docker:** `docker run -p 20000:20000 pablogcaldito/mimcas-server:v0.1.0 [ARGUMENTS]`
+- **Option 2: Download and run binary:** download from [releases page](https://github.com/caldito/mimcas/releases/) and run `./mimcas-server [ARGUMENTS]`
+- **Option 3: Build from source:** `make && ./bin/mimcas-server [ARGUMENTS]`.
 ### Server flags
 None of them are required. The available flags are:
 - `-port`: Port to use for listening for incoming connections. By default it will be `20000`.
@@ -32,8 +33,9 @@ None of them are required. The available flags are:
 
 ## Connecting with a client
 The only client for now is the CLI one. It will available when building the source code as well.
-- **Option 1: Docker** `docker run --network host -it pablogcaldito/mimcas-cli:v0.1.0 mimcas-cli [ARGUMENTS]` 
-- **Option 2: Build the source** `make && ./bin/mimcas-cli [ARGUMENTS]`.
+- **Option 1: Docker:** `docker run --network host -it pablogcaldito/mimcas-cli:v0.1.0 mimcas-cli [ARGUMENTS]` 
+- **Option 2: Download and run binary:** download from [releases page](https://github.com/caldito/mimcas/releases/) and run `./mimcas-cli [ARGUMENTS]`
+- **Option 3: Build from source:** `make && ./bin/mimcas-cli [ARGUMENTS]`.
 
 ### Client flags
 None of them are required. The available flags are:
